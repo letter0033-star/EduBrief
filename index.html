@@ -305,6 +305,17 @@
 </div>
 
 <script>
+// Suppress Tailwind CDN production warning in console
+(function() {
+    const originalWarn = console.warn;
+    console.warn = function(...args) {
+        if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) {
+            return;
+        }
+        originalWarn.apply(console, args);
+    };
+})();
+
 // =======================================================================================
 // [CORE CONFIG] Fallback / Default API key provided by user
 // =======================================================================================
@@ -594,7 +605,7 @@ async function generateMorningBriefing() {
    STREAMING_CHUNK: Gemini 2.5 Live Grounding Engine
    ========================================== */
 async function fetchRealGeminiData(apiKey, updateProgressCallback) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     
     updateProgressCallback(45, "구글 서칭망 연동 중 및 뉴스 군집 분석 진행 중...");
     
