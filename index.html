@@ -553,14 +553,16 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
         if (jsonText) {
             const parsed = extractJsonFromString(jsonText);
             if (parsed && parsed.news) {
-                // Post-process links using grounding metadata
+                // Post-process links using grounding metadata to resolve correct direct links
                 const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
                 parsed.news.forEach(item => {
-                    const url = item.source_link;
-                    const isRedirect = !url || url.toLowerCase().includes("grounding-api-redirect") || url.toLowerCase().includes("vertexaisearch") || url.startsWith("/");
-                    if (isRedirect) {
-                        const matchedUrl = findBestMatchingUrl(item.title, item.source_press, groundingChunks);
-                        item.source_link = matchedUrl || `https://www.google.com/search?q=${encodeURIComponent(item.title)}`;
+                    // Try to match the article title with actual search grounding chunks to extract the real URL
+                    const matchedUrl = findBestMatchingUrl(item.title, item.source_press, groundingChunks);
+                    if (matchedUrl) {
+                        item.source_link = matchedUrl;
+                    } else {
+                        // Fallback to a direct Google search query for the specific title + press name (highly reliable, no 404s)
+                        item.source_link = `https://www.google.com/search?q=${encodeURIComponent(item.title + ' ' + (item.source_press || ''))}`;
                     }
                 });
                 return parsed.news;
@@ -608,7 +610,7 @@ function findBestMatchingUrl(newsTitle, pressName, groundingChunks) {
     if (!groundingChunks || groundingChunks.length === 0) return null;
     
     let bestMatch = null;
-    let maxOverlap = 0;
+    let maxScore = 0;
     
     const normalize = str => (str || "").toLowerCase().replace(/[^a-z0-9가-힣]/g, "");
     const normalizedTitle = normalize(newsTitle);
@@ -620,42 +622,53 @@ function findBestMatchingUrl(newsTitle, pressName, groundingChunks) {
         
         const normalizedChunkTitle = normalize(title);
         
-        let overlap = 0;
-        const words = newsTitle.split(/\s+/);
+        // 1. Exact match after normalization
+        if (normalizedTitle === normalizedChunkTitle) {
+            return uri;
+        }
+        
+        // 2. Substring match
+        if (normalizedTitle.includes(normalizedChunkTitle) || normalizedChunkTitle.includes(normalizedTitle)) {
+            return uri;
+        }
+        
+        // 3. Word overlap (case insensitive)
+        let matchCount = 0;
+        const words = newsTitle.toLowerCase().split(/[^a-z0-9가-힣]+/);
         words.forEach(word => {
-            if (word.length >= 2 && title.includes(word)) {
-                overlap++;
+            if (word.length >= 2 && title.toLowerCase().includes(word)) {
+                matchCount++;
             }
         });
         
-        if (overlap > maxOverlap) {
-            maxOverlap = overlap;
+        // 4. Press name match bonus (applied only if there is at least some title overlap to avoid generic redirects)
+        let pressBonus = 0;
+        if (pressName && matchCount > 0) {
+            const pressLower = pressName.toLowerCase();
+            const uriLower = uri.toLowerCase();
+            if (pressLower.includes("연합뉴스") && uriLower.includes("yna.co.kr")) pressBonus = 3;
+            else if (pressLower.includes("kbs") && uriLower.includes("kbs.co.kr")) pressBonus = 3;
+            else if (pressLower.includes("mbc") && uriLower.includes("imbc.com")) pressBonus = 3;
+            else if (pressLower.includes("sbs") && uriLower.includes("sbs.co.kr")) pressBonus = 3;
+            else if (pressLower.includes("한겨레") && uriLower.includes("hani.co.kr")) pressBonus = 3;
+            else if (pressLower.includes("경향") && uriLower.includes("khan.co.kr")) pressBonus = 3;
+            else if (pressLower.includes("동아") && uriLower.includes("donga.com")) pressBonus = 3;
+            else if (pressLower.includes("조선") && uriLower.includes("chosun.com")) pressBonus = 3;
+            else if (pressLower.includes("중앙") && uriLower.includes("joins.com")) pressBonus = 3;
+            else if (pressLower.includes("한국일보") && uriLower.includes("hankookilbo.com")) pressBonus = 3;
+            else if (pressLower.includes("강원일보") && uriLower.includes("kwnews.co.kr")) pressBonus = 3;
+            else if (pressLower.includes("강원도민") && uriLower.includes("kado.net")) pressBonus = 3;
+        }
+        
+        const finalScore = matchCount + pressBonus;
+        if (finalScore > maxScore) {
+            maxScore = finalScore;
             bestMatch = uri;
         }
     }
     
-    if (maxOverlap < 2) {
-        const pressLower = (pressName || "").toLowerCase();
-        for (const chunk of groundingChunks) {
-            const uri = chunk.web?.uri;
-            if (!uri) continue;
-            
-            if (pressLower.includes("연합뉴스") && uri.includes("yna.co.kr")) return uri;
-            if (pressLower.includes("kbs") && uri.includes("kbs.co.kr")) return uri;
-            if (pressLower.includes("mbc") && uri.includes("imbc.com")) return uri;
-            if (pressLower.includes("sbs") && uri.includes("sbs.co.kr")) return uri;
-            if (pressLower.includes("한겨레") && uri.includes("hani.co.kr")) return uri;
-            if (pressLower.includes("경향") && uri.includes("khan.co.kr")) return uri;
-            if (pressLower.includes("동아") && uri.includes("donga.com")) return uri;
-            if (pressLower.includes("조선") && uri.includes("chosun.com")) return uri;
-            if (pressLower.includes("중앙") && uri.includes("joins.com")) return uri;
-            if (pressLower.includes("한국일보") && uri.includes("hankookilbo.com")) return uri;
-            if (pressLower.includes("강원일보") && uri.includes("kwnews.co.kr")) return uri;
-            if (pressLower.includes("강원도민") && uri.includes("kado.net")) return uri;
-        }
-    }
-    
-    return bestMatch;
+    // We require at least a score of 2 (e.g. 2 words matched, or 1 word + press bonus) to be confident
+    return maxScore >= 2 ? bestMatch : null;
 }
 
 // Robust JSON extraction helper
