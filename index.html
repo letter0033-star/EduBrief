@@ -540,7 +540,7 @@ async function generateMorningBriefing() {
         }
     } catch (err) {
         console.error("Gemini API Error:", err);
-        showToast("⚠️ 실시간 수집 연동 제한 또는 네트워크 오류로 기본 탑재된 교육 비서 데이터로 전환합니다.", "info");
+        showToast(`⚠️ 수집 실패 (${err.message || err}): 기본 탑재 교육 비서 데이터로 대체 로드합니다.`, "error");
         ALL_NEWS_DATA = [...SIMULATED_NEWS_DATA];
     } finally {
         // Complete processing and close loading state
