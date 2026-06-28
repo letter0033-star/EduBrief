@@ -332,7 +332,7 @@ const SIMULATED_NEWS_DATA = [
         priority_reason: "교원 연금 및 정년 연장 우선 고정 안건",
         status: "CONFIRMED",
         summary_points: [
-            "국회 교육위원회는 학령인구 감소와 초고령화 사회 안착 대책으로 공무원 정년을 현행 만 62세에서 만 65세까지 단계적으로 연장하는 안을 최종 가결했습니다.",
+            "국회 교육위원회는 학령인구 감소 and 초고령화 사회 안착 대책으로 공무원 정년을 현행 만 62세에서 만 65세까지 단계적으로 연장하는 안을 최종 가결했습니다.",
             "이에 따라 2028년부터 2년 주기로 정년이 1년씩 늘어나며, 정년 연장 구간에는 '임금피크제'가 전격 도입되어 최종연도 급여의 80% 수준으로 조정됩니다.",
             "또한, 공무원연금 수령 개시 연령인 65세와 은퇴 시점 간의 '소득 크레바스(공백)'를 메우기 위해 연금 연계형 직무 재조정 제도를 동시 설계했습니다.",
             "일선 시도교육청과 한국교총은 신규 임용 절벽 현상을 예방하기 위한 추가 신규 정원 확보 특별 조치를 교육부에 강력히 촉구했습니다."
@@ -609,8 +609,16 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     
     updateProgressCallback(45, "구글 서칭망 연동 중 및 뉴스 군집 분석 진행 중...");
     
-    const promptText = `오늘 날짜는 2026년 6월 28일이다. 대한민국 교육부 정책, 시도교육청 정책, 교원 인사, 교원 정원, 교원 연금, 공무원연금, 정년연장, 임금피크제, 교원 보수, 학교 행정, 학교 안전, 학교폭력, 생활지도, 교육과정, AI교육, 디지털교과서, 늘봄학교, 초등교육, 교육 관련 법률 개정, 국회 교육위원회, 교육부 보도자료, 인사혁신처 발표, 공무원 관련 제도 변화와 관련된 2026년 6월 최신 뉴스를 실시간 웹 검색(Google Search)으로 수집하라.
-    단, 학원 홍보, 대학 입시 광고, 단순 사건사고, 중복 기사, 조회수 목적의 자극적 기사는 철저히 제외한다.
+    // Dynamically calculate current time and 36-hour cutoff time (KST)
+    const now = new Date();
+    const formattedNow = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    const cutoffTime = new Date(now.getTime() - (36 * 60 * 60 * 1000));
+    const formattedCutoff = cutoffTime.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    
+    const promptText = `현재 시간은 대한민국 표준시(KST)로 ${formattedNow}이다. 대한민국 교육부 정책, 시도교육청 정책, 교원 인사, 교원 정원, 교원 연금, 공무원연금, 정년연장, 임금피크제, 교원 보수, 학교 행정, 학교 안전, 학교폭력, 생활지도, 교육과정, AI교육, 디지털교과서, 늘봄학교, 초등교육, 교육 관련 법률 개정, 국회 교육위원회, 교육부 보도자료, 인사혁신처 발표, 공무원 관련 제도 변화와 관련된 최신 뉴스를 실시간 웹 검색(Google Search)으로 수집하라.
+    단, 검색 범위는 현재 시간 기준 최근 36시간 이내(즉, ${formattedCutoff} 이후)에 작성되거나 발행된 뉴스 기사로 엄격히 제한한다. 36시간보다 오래된 기사는 수집 목록에서 무조건 제외하라.
+    각 기사의 'source_date' 필드(발행일)는 반드시 이 범위 안의 실제 날짜(YYYY-MM-DD)로 작성되어야 한다.
+    학원 홍보, 대학 입시 광고, 단순 사건사고, 중복 기사, 조회수 목적의 자극적 기사는 철저히 제외한다.
     각 기사는 아래 규칙을 준수하여 요약 및 분석해야 한다:
     1. '교원 연금', '정년연장', '교원 정원', '교육부 정책', '법률 개정', '시행령 개정' 관련 뉴스와 '강원특별자치도교육청' 관련 내용 중 '강원일보' 및 '강원도민일보' 언론사 뉴스는 최우선 순위로 판정하고 'priority_reason'에 우선순위 사유(예: "강원교육청 중대 보도")를 한글로 기입하라. 그 외에는 빈 문자열로 하라.
     2. 'status'는 'CONFIRMED'(확정된 정책, 법안 통과 등) 또는 'UNDER_REVIEW'(검토 중, 논의 중, 심의 중 등)으로 구분하라.
@@ -619,7 +627,7 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     5. 'action_items'에는 학교 관리자가 사전에 준비하거나 확인해야 할 행정적, 운영적 대처 제안 사항을 2~3가지 한글로 작성하라.
     6. 'importance'는 'HIGH'(학교 운영 직접 영향), 'MEDIUM'(향후 정책 변화 예상), 'LOW'(일반 교육뉴스)로 분류하라.
     7. 'impact_rating'은 학교 영향도로 1부터 5 사이의 정수로 표기하라.
-    8. 실존하는 2026년 최신 기사 정보를 기반으로 하되, 출처 언론사('source_press'), 발행일('source_date', YYYY-MM-DD), 원문 링크('source_link')를 포함하라. 단, 'source_link'는 구글 검색 리다이렉트 주소(예: 'google.com/grounding-api-redirect...' 또는 'vertexaisearch.cloud.google.com...')가 아니라, 해당 기사의 실제 원본 언론사 기사 상세 URL(예: 'https://news.kbs.co.kr/news/pc/view/view.do?ncd=...' 또는 'https://www.yna.co.kr/view/AKR...')이어야만 한다.
+    8. 실존하는 최신 기사 정보를 기반으로 하되, 출처 언론사('source_press'), 발행일('source_date', YYYY-MM-DD), 원문 링크('source_link')를 포함하라. 단, 'source_link'는 구글 검색 리다이렉트 주소(예: 'google.com/grounding-api-redirect...' 또는 'vertexaisearch.cloud.google.com...')가 아니라, 해당 기사의 실제 원본 언론사 기사 상세 URL(예: 'https://news.kbs.co.kr/news/pc/view/view.do?ncd=...' 또는 'https://www.yna.co.kr/view/AKR...')이어야만 한다.
 
     응답은 반드시 아래의 JSON 스키마를 따르는 JSON 데이터 형태로만 반환해야 하며, 마크다운 코드 블록( \`\`\`json ... \`\`\` ) 안에 넣어라. 다른 인사말이나 설명 텍스트 없이 JSON만 반환하라.
 
