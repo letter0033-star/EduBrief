@@ -619,7 +619,29 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     5. 'action_items'에는 학교 관리자가 사전에 준비하거나 확인해야 할 행정적, 운영적 대처 제안 사항을 2~3가지 한글로 작성하라.
     6. 'importance'는 'HIGH'(학교 운영 직접 영향), 'MEDIUM'(향후 정책 변화 예상), 'LOW'(일반 교육뉴스)로 분류하라.
     7. 'impact_rating'은 학교 영향도로 1부터 5 사이의 정수로 표기하라.
-    8. 실존하는 2026년 최신 기사 정보를 기반으로 하되, 출처 언론사('source_press'), 발행일('source_date', YYYY-MM-DD), 원문 링크('source_link')를 포함하라.`;
+    8. 실존하는 2026년 최신 기사 정보를 기반으로 하되, 출처 언론사('source_press'), 발행일('source_date', YYYY-MM-DD), 원문 링크('source_link')를 포함하라.
+
+    응답은 반드시 아래의 JSON 스키마를 따르는 JSON 데이터 형태로만 반환해야 하며, 마크다운 코드 블록( \`\`\`json ... \`\`\` ) 안에 넣어라. 다른 인사말이나 설명 텍스트 없이 JSON만 반환하라.
+
+    {
+      "news": [
+        {
+          "id": "문자열 (고유ID, 예: edu-news-1)",
+          "title": "문자열 (뉴스 제목)",
+          "importance": "문자열 ('HIGH', 'MEDIUM', 'LOW' 중 하나)",
+          "priority_reason": "문자열 (최우선 순위 사유 또는 빈 문자열)",
+          "status": "문자열 ('CONFIRMED', 'UNDER_REVIEW' 중 하나)",
+          "summary_points": ["문자열 요약1", "문자열 요약2", ...],
+          "impact_rating": 정수 (1~5),
+          "related_fields": ["분야1", "분야2", ...],
+          "action_items": ["대처1", "대처2", ...],
+          "source_press": "문자열 (언론사명)",
+          "source_date": "문자열 (YYYY-MM-DD)",
+          "source_link": "문자열 (기사 원본 URL)",
+          "distinction_fact_opinion": "문자열 (사실과 의견 분석)"
+        }
+      ]
+    }`;
 
     const payload = {
         contents: [{
@@ -628,47 +650,7 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
         systemInstruction: {
             parts: [{ text: "너는 대한민국 학교 관리자(교장, 교감)를 위한 교육 전문 AI 비서이다. 제공된 스키마에 맞춰 최신 교육 뉴스를 실시간 수집, 정제하여 정확한 JSON 객체로 반환하라. 학원 마케팅이나 대학 광고는 엄격히 걸러내라." }]
         },
-        tools: [{ "google_search": {} }],
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "OBJECT",
-                properties: {
-                    news: {
-                        type: "ARRAY",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                id: { type: "STRING" },
-                                title: { type: "STRING" },
-                                importance: { type: "STRING", enum: ["HIGH", "MEDIUM", "LOW"] },
-                                priority_reason: { type: "STRING" },
-                                status: { type: "STRING", enum: ["CONFIRMED", "UNDER_REVIEW"] },
-                                summary_points: {
-                                    type: "ARRAY",
-                                    items: { type: "STRING" }
-                                },
-                                impact_rating: { type: "INTEGER" },
-                                related_fields: {
-                                    type: "ARRAY",
-                                    items: { type: "STRING" }
-                                },
-                                action_items: {
-                                    type: "ARRAY",
-                                    items: { type: "STRING" }
-                                },
-                                source_press: { type: "STRING" },
-                                source_date: { type: "STRING" },
-                                source_link: { type: "STRING" },
-                                distinction_fact_opinion: { type: "STRING" }
-                            },
-                            required: ["id", "title", "importance", "status", "summary_points", "impact_rating", "related_fields", "action_items", "source_press", "source_date", "source_link", "distinction_fact_opinion"]
-                        }
-                    }
-                },
-                required: ["news"]
-            }
-        }
+        tools: [{ "google_search": {} }]
     };
 
     updateProgressCallback(75, "Gemini 구조화된 출력 데이터 해석 및 매칭 중...");
@@ -682,13 +664,59 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     });
 
     const result = await response.json();
+    
+    // In case the API returns an error structure inside the response body
+    if (result.error) {
+        throw new Error(result.error.message || "API 호출 중 오류가 발생했습니다.");
+    }
+    
     const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
     
     if (jsonText) {
-        const parsed = JSON.parse(jsonText);
-        return parsed.news || [];
+        const parsed = extractJsonFromString(jsonText);
+        if (parsed && parsed.news) {
+            return parsed.news;
+        }
     }
     return [];
+}
+
+// Robust JSON extraction helper
+function extractJsonFromString(str) {
+    if (!str) return null;
+    
+    // 1. Try to find content inside markdown json code blocks ```json ... ```
+    const markdownMatch = str.match(/```json\s*([\s\S]*?)\s*```/);
+    if (markdownMatch && markdownMatch[1]) {
+        try {
+            return JSON.parse(markdownMatch[1].trim());
+        } catch (e) {}
+    }
+    
+    // 2. Try to find content inside any code block ``` ... ```
+    const codeBlockMatch = str.match(/```\s*([\s\S]*?)\s*```/);
+    if (codeBlockMatch && codeBlockMatch[1]) {
+        try {
+            return JSON.parse(codeBlockMatch[1].trim());
+        } catch (e) {}
+    }
+
+    // 3. Find the first '{' and the last '}' and parse it
+    const firstBrace = str.indexOf('{');
+    const lastBrace = str.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        const candidate = str.substring(firstBrace, lastBrace + 1);
+        try {
+            return JSON.parse(candidate);
+        } catch (e) {}
+    }
+
+    // 4. Try parsing the whole string directly
+    try {
+        return JSON.parse(str.trim());
+    } catch (e) {}
+
+    return null;
 }
 
 /* ==========================================
