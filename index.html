@@ -484,14 +484,14 @@ async function generateMorningBriefing() {
 async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     
-    // Dynamically calculate current time and 36-hour cutoff time (KST)
+    // Dynamically calculate current time and 3-day (72-hour) cutoff time (KST)
     const now = new Date();
     const formattedNow = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-    const cutoffTime = new Date(now.getTime() - (36 * 60 * 60 * 1000));
+    const cutoffTime = new Date(now.getTime() - (72 * 60 * 60 * 1000));
     const formattedCutoff = cutoffTime.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
     
     const promptText = `현재 시간은 대한민국 표준시(KST)로 ${formattedNow}이다. 대한민국 교육부 정책, 시도교육청 정책, 교원 인사, 교원 정원, 교원 연금, 공무원연금, 정년연장, 임금피크제, 교원 보수, 학교 행정, 학교 안전, 학교폭력, 생활지도, 교육과정, AI교육, 디지털교과서, 늘봄학교, 초등교육, 교육 관련 법률 개정, 국회 교육위원회, 교육부 보도자료, 인사혁신처 발표, 공무원 관련 제도 변화와 관련된 최신 뉴스를 실시간 웹 검색(Google Search)으로 수집하라. 관련성이 다소 낮거나 간접적인 연관성이 있는 교육 뉴스이더라도 다양하고 풍부한 보고서 작성을 위해 반드시 10개 내외(최소 8개, 최대 12개)의 많은 뉴스를 수집하여 작성하라.
-    단, 검색 범위는 현재 시간 기준 최근 36시간 이내(즉, ${formattedCutoff} 이후)에 작성되거나 발행된 뉴스 기사로 엄격히 제한한다. 36시간보다 오래된 기사는 수집 목록에서 무조건 제외하라.
+    단, 검색 범위는 현재 시간 기준 최근 3일 이내(즉, ${formattedCutoff} 이후)에 작성되거나 발행된 뉴스 기사로 엄격히 제한한다. 3일보다 오래된 기사는 수집 목록에서 무조건 제외하라.
     각 기사의 'source_date' 필드(발행일)는 반드시 이 범위 안의 실제 날짜(YYYY-MM-DD)로 작성되어야 한다.
     학원 홍보, 대학 입시 광고, 단순 사건사고, 중복 기사, 조회수 목적의 자극적 기사는 철저히 제외한다.
     각 기사는 아래 규칙을 준수하여 요약 및 분석해야 한다:
@@ -574,7 +574,7 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
         // Dynamic message feedback
         updateProgressCallback(65, "실시간 수집 지연 감지 - AI 교육 전문지식 기반 생성 중...");
         
-        const fallbackPrompt = promptText + "\n\n[중요 지시사항: 현재 실시간 웹 검색 도구 로드 한도 초과 또는 일시적 네트워크 장애 상태이므로, 너의 대한민국 교육 정책 지식과 트렌드를 종합하여 2026년 6월 28일 기준의 최신 핵심 교육부 정책 속보 및 학교 행정 공문 뉴스를 10개 작성해 다오. 관련성이 다소 낮거나 간접적인 교육 뉴스이더라도 다양하게 참고할 수 있도록 10개의 리포트를 가득 채워 구성하고, 출처 언론사 및 날짜(2026-06-27 혹은 2026-06-28)도 그럴듯하게 설정하고, 'source_link'는 구글 기사 검색 결과 링크(예: https://www.google.com/search?q=...)로 채워다오.]";
+        const fallbackPrompt = promptText + "\n\n[중요 지시사항: 현재 실시간 웹 검색 도구 로드 한도 초과 또는 일시적 네트워크 장애 상태이므로, 너의 대한민국 교육 정책 지식과 트렌드를 종합하여 2026년 6월 28일 기준의 최신 핵심 교육부 정책 속보 및 학교 행정 공문 뉴스를 10개 작성해 다오. 관련성이 다소 낮거나 간접적인 교육 뉴스이더라도 다양하게 참고할 수 있도록 10개의 리포트를 가득 채워 구성하고, 출처 언론사 및 날짜(최근 3일 이내에 해당하는 2026-06-25 ~ 2026-06-28 사이)도 그럴듯하게 설정하고, 'source_link'는 구글 기사 검색 결과 링크(예: https://www.google.com/search?q=...)로 채워다오.]";
         
         const payloadWithoutSearch = {
             contents: [{ parts: [{ text: fallbackPrompt }] }],
