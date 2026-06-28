@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>에듀브리프 (EduBrief) - 학교 관리자용 교육정책 뉴스 큐레이터</title>
+    <meta name="description" content="초등학교 교감, 교장 및 학교 행정 관리자를 위한 맞춤형 교육정책 뉴스 큐레이션 서비스. 주요 정책 정보 및 학교 영향도 분석 제공.">
+    <!-- Pretendard Font -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="light-mode">
+    <div id="app-container">
+        <!-- Sidebar for Filtering -->
+        <aside id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">📊</span>
+                    <h1>EduBrief</h1>
+                </div>
+                <p class="tagline">교감·학교관리자용 정책 큐레이션</p>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <h3>📁 카테고리 필터</h3>
+                    <div id="category-filter-list" class="tag-filter-list">
+                        <!-- Category tags will be inserted dynamically by JS -->
+                    </div>
+                </div>
+                
+                <div class="nav-section">
+                    <h3>💡 큐레이터 정보</h3>
+                    <div class="curator-card">
+                        <p class="curator-title">교육정책 전문 큐레이터</p>
+                        <p class="curator-desc">학교 현장에 직접적인 영향을 미치는 법령, 연금, 정원, 정책 변화를 엄선하여 요약 분석합니다.</p>
+                    </div>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main id="main-content">
+            <!-- Top Navigation / Search Bar -->
+            <header id="top-header">
+                <div class="header-left">
+                    <button id="sidebar-toggle" class="icon-btn" aria-label="메뉴 토글">
+                        <span class="btn-icon">☰</span>
+                    </button>
+                    <div class="date-display" id="current-date-display">2026년 6월 28일 일요일</div>
+                </div>
+                <div class="header-right">
+                    <button id="theme-toggle-btn" class="icon-btn" aria-label="테마 전환" title="화면 테마 변경">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <button id="open-add-modal-btn" class="btn btn-primary">
+                        <span class="btn-icon">+</span> 뉴스 큐레이션 추가
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dashboard Stats Row -->
+            <section id="stats-dashboard" class="stats-row">
+                <div class="stat-card total" id="stat-total-card">
+                    <div class="stat-info">
+                        <span class="stat-label">전체 뉴스</span>
+                        <span class="stat-value" id="stat-total-count">0</span>
+                    </div>
+                    <div class="stat-icon">📰</div>
+                </div>
+                <div class="stat-card critical" id="stat-critical-card">
+                    <div class="stat-info">
+                        <span class="stat-label">🔴 매우 중요</span>
+                        <span class="stat-value" id="stat-critical-count">0</span>
+                    </div>
+                    <div class="stat-icon">🚨</div>
+                </div>
+                <div class="stat-card warning" id="stat-warning-card">
+                    <div class="stat-info">
+                        <span class="stat-label">🟠 중요</span>
+                        <span class="stat-value" id="stat-warning-count">0</span>
+                    </div>
+                    <div class="stat-icon">⚠️</div>
+                </div>
+                <div class="stat-card info" id="stat-info-card">
+                    <div class="stat-info">
+                        <span class="stat-label">🟡 참고</span>
+                        <span class="stat-value" id="stat-info-count">0</span>
+                    </div>
+                    <div class="stat-icon">ℹ️</div>
+                </div>
+                <div class="stat-card draft" id="stat-draft-card">
+                    <div class="stat-info">
+                        <span class="stat-label">검토 중인 정책</span>
+                        <span class="stat-value" id="stat-draft-count">0</span>
+                    </div>
+                    <div class="stat-icon">🔍</div>
+                </div>
+            </section>
+
+            <!-- Controls and Filters -->
+            <section id="controls-section">
+                <div class="search-box-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-input" placeholder="뉴스 제목, 내용, 준비사항 키워드로 검색...">
+                </div>
+                
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label for="priority-filter">중요도</label>
+                        <select id="priority-filter">
+                            <option value="all">전체 중요도</option>
+                            <option value="critical">🔴 매우 중요 (현장 영향)</option>
+                            <option value="warning">🟠 중요 (향후 예상)</option>
+                            <option value="info">🟡 참고 (일반 뉴스)</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="status-filter">정책 구분</label>
+                        <select id="status-filter">
+                            <option value="all">전체 정책 구분</option>
+                            <option value="confirmed">확정 정책</option>
+                            <option value="reviewing">검토 중인 정책</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="sort-select">정렬 기준</label>
+                        <select id="sort-select">
+                            <option value="priority-rule">우선순위 노출 (연금/정년 등 우선 + 중요도)</option>
+                            <option value="latest">최신 등록순</option>
+                            <option value="impact">학교 영향도 순</option>
+                        </select>
+                    </div>
+
+                    <button id="reset-filters-btn" class="btn btn-secondary">필터 초기화</button>
+                </div>
+                
+                <div id="active-filters-container" class="active-filters-bar hidden">
+                    <span class="active-label">적용된 필터:</span>
+                    <div id="active-filters-list" class="active-tags-list"></div>
+                    <button id="clear-active-tags-btn" class="clear-all-btn">모두 지우기</button>
+                </div>
+            </section>
+
+            <!-- News Grid -->
+            <section id="news-grid-section">
+                <div class="section-title-bar">
+                    <h2 class="section-title">큐레이션 뉴스 목록</h2>
+                    <span class="results-count" id="results-count-text">검색 결과: 0건</span>
+                </div>
+                
+                <div id="news-grid" class="news-grid">
+                    <!-- Dynamic news card items will be injected here -->
+                </div>
+                
+                <!-- Empty State -->
+                <div id="empty-state" class="empty-state hidden">
+                    <div class="empty-icon">📂</div>
+                    <h3>검색 및 필터 조건에 맞는 뉴스가 없습니다.</h3>
+                    <p>검색어를 변경하거나 필터를 초기화해 보세요.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 1. Detail View Modal -->
+    <div id="detail-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+        <div class="modal-content detail-modal-content">
+            <header class="modal-header">
+                <div class="modal-meta">
+                    <span id="detail-priority-badge" class="badge">🔴 매우 중요</span>
+                    <span id="detail-status-badge" class="badge-status">확정 정책</span>
+                </div>
+                <button id="close-detail-modal-btn" class="close-btn" aria-label="닫기">&times;</button>
+            </header>
+            
+            <div class="modal-body" id="detail-modal-body">
+                <h2 id="detail-title" class="detail-title">교육부, 2026년 2학기 늘봄학교 전국 초등학교 전면 시행 발표</h2>
+                
+                <!-- Metas grid -->
+                <div class="detail-meta-grid">
+                    <div class="meta-item">
+                        <span class="meta-label">학교 영향도</span>
+                        <div class="meta-value star-rating" id="detail-impact-stars">
+                            ★★★★★
+                        </div>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">출처 / 날짜</span>
+                        <span class="meta-value" id="detail-source-info">한국교육신문 | 2026.06.28</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">원문 링크</span>
+                        <span class="meta-value" id="detail-source-link-wrapper">
+                            <a href="#" id="detail-source-link" target="_blank" rel="noopener noreferrer">보도자료 원문 보기 🔗</a>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Related Fields -->
+                <div class="detail-section">
+                    <h4 class="detail-section-title">🏷️ 관련 분야</h4>
+                    <div id="detail-tags-list" class="detail-tags-container">
+                        <!-- tags -->
+                    </div>
+                </div>
+
+                <!-- Key Summary -->
+                <div class="detail-section highlight-box">
+                    <h4 class="detail-section-title">📌 핵심 내용 요약</h4>
+                    <div id="detail-summary-content" class="summary-text-block">
+                        <!-- 3-5 lines -->
+                    </div>
+                </div>
+
+                <!-- School Preparations -->
+                <div class="detail-section prep-box">
+                    <h4 class="detail-section-title">📋 학교에서 준비할 사항</h4>
+                    <ul id="detail-prep-list" class="prep-list">
+                        <!-- preparations -->
+                    </ul>
+                </div>
+
+                <!-- Fact vs Opinion Sections -->
+                <div class="analysis-split-container">
+                    <div class="analysis-panel fact-panel">
+                        <h4 class="detail-section-title">📰 기사/보도자료 내용 (Fact)</h4>
+                        <div id="detail-fact-content" class="body-text-block">
+                            <!-- facts -->
+                        </div>
+                    </div>
+                    <div class="analysis-panel opinion-panel">
+                        <h4 class="detail-section-title">💡 큐레이터 분석/의견 (Opinion)</h4>
+                        <div id="detail-opinion-content" class="body-text-block">
+                            <!-- opinions -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <footer class="modal-footer">
+                <div class="footer-left">
+                    <button id="copy-markdown-btn" class="btn btn-secondary btn-icon-text">
+                        <span>📋</span> 메신저 공유용 마크다운 복사
+                    </button>
+                    <button id="print-detail-btn" class="btn btn-secondary btn-icon-text">
+                        <span>🖨️</span> PDF/보고서 인쇄
+                    </button>
+                </div>
+                <div class="footer-right">
+                    <button id="edit-curation-btn" class="btn btn-secondary">수정</button>
+                    <button id="delete-curation-btn" class="btn btn-danger">삭제</button>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- 2. Add / Edit News Modal Form -->
+    <div id="form-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="form-modal-title">
+        <div class="modal-content form-modal-content">
+            <header class="modal-header">
+                <h2 id="form-modal-title">새로운 뉴스 큐레이션 작성</h2>
+                <button id="close-form-modal-btn" class="close-btn" aria-label="닫기">&times;</button>
+            </header>
+            
+            <form id="news-curation-form" novalidate>
+                <div class="modal-body form-body">
+                    <!-- Helper Parser Box -->
+                    <div class="parser-helper-box">
+                        <details>
+                            <summary>💡 <strong>큐레이션 작성 도우미 (기사 붙여넣기 파싱)</strong></summary>
+                            <div class="parser-content">
+                                <p class="helper-text">뉴스 텍스트를 아래 입력창에 붙여넣고 [파싱 적용] 버튼을 누르면, 제목과 팩트 내용이 자동으로 기입되고 핵심 내용 요약 초안이 시뮬레이션 모델을 통해 생성됩니다.</p>
+                                <textarea id="raw-news-paste" placeholder="여기에 뉴스 기사 전문이나 보도자료 텍스트를 붙여넣으세요..."></textarea>
+                                <button type="button" id="auto-parse-btn" class="btn btn-secondary btn-small">🤖 기사 텍스트 분석 및 초안 생성</button>
+                            </div>
+                        </details>
+                    </div>
+
+                    <input type="hidden" id="form-news-id" value="">
+
+                    <!-- Title -->
+                    <div class="form-group">
+                        <label for="form-title" class="required">뉴스 제목</label>
+                        <input type="text" id="form-title" required placeholder="예) 공무원연금 지급 개시 연령 65세 조정안 입법 예고">
+                        <span class="error-msg" id="error-title"></span>
+                    </div>
+
+                    <!-- Meta Row (Priority, Status, Impact) -->
+                    <div class="form-row-three">
+                        <div class="form-group">
+                            <label for="form-priority" class="required">중요도 분류</label>
+                            <select id="form-priority" required>
+                                <option value="critical">🔴 매우 중요 (학교 운영 직접 영향)</option>
+                                <option value="warning" selected>🟠 중요 (향후 정책 변화 예상)</option>
+                                <option value="info">🟡 참고 (일반 교육뉴스)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="form-status" class="required">정책 상태 구분</label>
+                            <select id="form-status" required>
+                                <option value="confirmed" selected>확정 정책</option>
+                                <option value="reviewing">검토 중인 정책 (미확정)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="form-impact" class="required">학교 영향도 (별점)</label>
+                            <select id="form-impact" required>
+                                <option value="5">★★★★★ (매우 높음)</option>
+                                <option value="4" selected>★★★★☆ (높음)</option>
+                                <option value="3">★★★☆☆ (보통)</option>
+                                <option value="2">★★☆☆☆ (낮음)</option>
+                                <option value="1">★☆☆☆☆ (매우 낮음)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Related Fields Checkboxes -->
+                    <div class="form-group">
+                        <label class="required">관련 분야 (중복 선택 가능)</label>
+                        <div class="checkbox-grid" id="form-related-fields">
+                            <!-- JS will inject checkboxes here -->
+                        </div>
+                        <span class="error-msg" id="error-fields"></span>
+                    </div>
+
+                    <!-- Key Summary -->
+                    <div class="form-group">
+                        <label for="form-summary" class="required">핵심 내용 요약 (3~5줄)</label>
+                        <textarea id="form-summary" required rows="4" placeholder="기사의 핵심 요점을 3줄에서 5줄 내외로 일목요연하게 작성하세요. 각 줄 끝에서 엔터를 눌러 구분할 수 있습니다."></textarea>
+                        <span class="error-msg" id="error-summary"></span>
+                    </div>
+
+                    <!-- School Preparations -->
+                    <div class="form-group">
+                        <label class="required">학교에서 준비할 사항 (2~3가지)</label>
+                        <div id="form-preparations-container">
+                            <div class="prep-input-row">
+                                <input type="text" class="form-prep-item" required placeholder="준비/확인해야 할 사항 첫 번째">
+                            </div>
+                            <div class="prep-input-row">
+                                <input type="text" class="form-prep-item" required placeholder="준비/확인해야 할 사항 두 번째">
+                            </div>
+                            <div class="prep-input-row">
+                                <input type="text" class="form-prep-item" placeholder="준비/확인해야 할 사항 세 번째 (선택)">
+                            </div>
+                        </div>
+                        <span class="error-msg" id="error-preps"></span>
+                    </div>
+
+                    <!-- Source Info -->
+                    <div class="form-row-three">
+                        <div class="form-group">
+                            <label for="form-source-media" class="required">출처 언론사/기관</label>
+                            <input type="text" id="form-source-media" required placeholder="예) 교육부, 한국일보 등">
+                            <span class="error-msg" id="error-media"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="form-source-date" class="required">발행일</label>
+                            <input type="date" id="form-source-date" required>
+                            <span class="error-msg" id="error-date"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="form-source-link">원문 링크 (URL)</label>
+                            <input type="url" id="form-source-link-input" placeholder="https://example.com/news-article">
+                            <span class="error-msg" id="error-link"></span>
+                        </div>
+                    </div>
+
+                    <!-- Fact vs Opinion Details -->
+                    <div class="form-row-two">
+                        <div class="form-group">
+                            <label for="form-fact" class="required">기사/보도자료 내용 (Fact)</label>
+                            <textarea id="form-fact" required rows="6" placeholder="뉴스 기사나 공식 보도자료에 포함된 객관적인 팩트 사실관계를 기록하세요."></textarea>
+                            <span class="error-msg" id="error-fact"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="form-opinion" class="required">큐레이터 분석/의견 (Opinion)</label>
+                            <textarea id="form-opinion" required rows="6" placeholder="해당 정책 변화가 일선 초등학교에 미칠 파장, 예산 확보 유의점, 교직원 간 갈등 가능성 등 전문가 코멘트를 입력하세요."></textarea>
+                            <span class="error-msg" id="error-opinion"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <footer class="modal-footer">
+                    <button type="button" id="cancel-form-btn" class="btn btn-secondary">취소</button>
+                    <button type="submit" id="save-news-btn" class="btn btn-primary">큐레이션 저장</button>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Element -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
