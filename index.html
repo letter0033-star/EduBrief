@@ -162,35 +162,7 @@
             </div>
         </div>
 
-        <!-- School Admin Action Checklist -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 flex-1 flex flex-col min-h-[300px]">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <i class="fa-solid fa-list-check text-emerald-500"></i>
-                    오늘의 실무 행정 대처 과제
-                </h3>
-                <span id="task-completion-rate" class="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">0/0 완료</span>
-            </div>
-            
-            <p class="text-[11px] text-slate-500 mb-4 leading-normal">
-                뉴스별 조치사항(학교에서 준비할 사항) 중 확인이 완료된 리스트를 체크하여 오늘 해야 할 과제를 관리하세요.
-            </p>
-
-            <!-- Task List Container -->
-            <div id="todo-tasks-container" class="space-y-2 overflow-y-auto max-h-[350px] flex-1 pr-1 text-xs">
-                <!-- Dynamic Items will be appended here -->
-                <div class="text-center py-10 text-slate-400 text-xs">
-                    <i class="fa-solid fa-paste text-2xl mb-2 block"></i>
-                    아침 보고를 생성하시면<br>학교 대처 과제가 자동 생성됩니다.
-                </div>
-            </div>
-            
-            <!-- Manual Task Addition -->
-            <div class="mt-4 pt-3 border-t border-slate-100 flex gap-2">
-                <input type="text" id="new-task-input" placeholder="행정 실무 직접 추가..." class="flex-1 text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white" onkeydown="if(event.key === 'Enter') addManualTask()">
-                <button onclick="addManualTask()" class="bg-blue-600 hover:bg-blue-700 text-white p-1.5 px-3 rounded-lg text-xs font-semibold transition-all shadow-sm">추가</button>
-            </div>
-        </div>
+        <!-- School Admin Action Checklist Removed -->
 
     </aside>
 
@@ -426,14 +398,6 @@ function initApp() {
     }
     document.getElementById('api-key-input').value = storedKey;
 
-    // Load custom tasks from localStorage or initialize empty
-    const storedTasks = localStorage.getItem('SCHOOL_ADMIN_TASKS');
-    if (storedTasks) {
-        ALL_TASKS = JSON.parse(storedTasks);
-    } else {
-        ALL_TASKS = [];
-    }
-
     // Set today's date readable text
     const today = new Date();
     const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
@@ -441,9 +405,7 @@ function initApp() {
 
     // Initial render using baseline mock data
     ALL_NEWS_DATA = [...SIMULATED_NEWS_DATA];
-    extractAndBuildTasksFromNews(false); // don't overwrite user's saved checkmarks on initial load
     renderAllNews();
-    renderTasks();
     updateCounterBadges();
     
     showToast("🔔 환영합니다! 오늘의 교육뉴스 보고가 정상 구동중입니다. API가 완비되었습니다.", "success");
@@ -594,9 +556,7 @@ async function generateMorningBriefing() {
         document.getElementById('secretary-status-text').innerText = "행정 비서 실시간 라이브 감시 중";
 
         // Update viewports
-        extractAndBuildTasksFromNews(true);
         renderAllNews();
-        renderTasks();
         updateCounterBadges();
     }
 }
@@ -683,10 +643,82 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     if (jsonText) {
         const parsed = extractJsonFromString(jsonText);
         if (parsed && parsed.news) {
+            // Post-process links using grounding metadata to filter out broken redirects
+            const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+            
+            parsed.news.forEach(item => {
+                const url = item.source_link;
+                const isRedirect = !url || url.toLowerCase().includes("grounding-api-redirect") || url.toLowerCase().includes("vertexaisearch") || url.startsWith("/");
+                
+                if (isRedirect) {
+                    const matchedUrl = findBestMatchingUrl(item.title, item.source_press, groundingChunks);
+                    if (matchedUrl) {
+                        item.source_link = matchedUrl;
+                    } else {
+                        // Safe fallback: search for title directly on Google
+                        item.source_link = `https://www.google.com/search?q=${encodeURIComponent(item.title)}`;
+                    }
+                }
+            });
             return parsed.news;
         }
     }
     return [];
+}
+
+// Resolve news title and press name to the original grounding URL
+function findBestMatchingUrl(newsTitle, pressName, groundingChunks) {
+    if (!groundingChunks || groundingChunks.length === 0) return null;
+    
+    let bestMatch = null;
+    let maxOverlap = 0;
+    
+    const normalize = str => (str || "").toLowerCase().replace(/[^a-z0-9가-힣]/g, "");
+    const normalizedTitle = normalize(newsTitle);
+    
+    for (const chunk of groundingChunks) {
+        const uri = chunk.web?.uri;
+        const title = chunk.web?.title;
+        if (!uri) continue;
+        
+        const normalizedChunkTitle = normalize(title);
+        
+        let overlap = 0;
+        const words = newsTitle.split(/\s+/);
+        words.forEach(word => {
+            if (word.length >= 2 && title.includes(word)) {
+                overlap++;
+            }
+        });
+        
+        if (overlap > maxOverlap) {
+            maxOverlap = overlap;
+            bestMatch = uri;
+        }
+    }
+    
+    if (maxOverlap < 2) {
+        const pressLower = (pressName || "").toLowerCase();
+        for (const chunk of groundingChunks) {
+            const uri = chunk.web?.uri;
+            if (!uri) continue;
+            
+            if (pressLower.includes("연합뉴스") && uri.includes("yna.co.kr")) return uri;
+            if (pressLower.includes("kbs") && uri.includes("kbs.co.kr")) return uri;
+            if (pressLower.includes("mbc") && uri.includes("imbc.com")) return uri;
+            if (pressLower.includes("sbs") && uri.includes("sbs.co.kr")) return uri;
+            if (pressLower.includes("한겨레") && uri.includes("hani.co.kr")) return uri;
+            if (pressLower.includes("경향") && uri.includes("khan.co.kr")) return uri;
+            if (pressLower.includes("동아") && uri.includes("donga.com")) return uri;
+            if (pressLower.includes("조선") && uri.includes("chosun.com")) return uri;
+            if (pressLower.includes("중앙") && uri.includes("joins.com")) return uri;
+            if (pressLower.includes("한국일보") && uri.includes("hankookilbo.com")) return uri;
+            if (pressLower.includes("강원일보") && uri.includes("kwnews.co.kr")) return uri;
+            if (pressLower.includes("강원도민") && uri.includes("kado.net")) return uri;
+        }
+    }
+    
+    return bestMatch;
 }
 
 // Robust JSON extraction helper
@@ -984,149 +1016,7 @@ function renderAllNews() {
     });
 }
 
-/* ==========================================
-   STREAMING_CHUNK: Task Management Logic
-   ========================================== */
-function extractAndBuildTasksFromNews(overwrite) {
-    const storedTasks = localStorage.getItem('SCHOOL_ADMIN_TASKS');
-    let existingTasks = [];
-    if (storedTasks) {
-        try { 
-            existingTasks = JSON.parse(storedTasks); 
-        } catch(e) {
-            existingTasks = [];
-        }
-    }
-
-    let newTasks = [];
-    ALL_NEWS_DATA.forEach(news => {
-        news.action_items.forEach((itemText, idx) => {
-            const taskId = `task-${news.id}-${idx}`;
-            const existing = existingTasks.find(t => t.id === taskId);
-            newTasks.push({
-                id: taskId,
-                text: itemText,
-                completed: existing ? existing.completed : false,
-                newsId: news.id,
-                newsTitle: news.title,
-                isManual: false
-            });
-        });
-    });
-
-    const manualTasks = existingTasks.filter(t => t.isManual);
-    
-    if (overwrite) {
-        ALL_TASKS = [...newTasks, ...manualTasks];
-    } else {
-        if (existingTasks.length > 0) {
-            ALL_TASKS = existingTasks;
-        } else {
-            ALL_TASKS = [...newTasks];
-        }
-    }
-
-    saveTasksToLocalStorage();
-}
-
-function saveTasksToLocalStorage() {
-    localStorage.setItem('SCHOOL_ADMIN_TASKS', JSON.stringify(ALL_TASKS));
-}
-
-function renderTasks() {
-    const container = document.getElementById('todo-tasks-container');
-    const rateLabel = document.getElementById('task-completion-rate');
-    if (!container) return;
-
-    container.innerHTML = '';
-
-    if (ALL_TASKS.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-10 text-slate-400 text-xs">
-                <i class="fa-solid fa-paste text-2xl mb-2 block"></i>
-                아침 보고를 생성하시면<br>학교 대처 과제가 자동 생성됩니다.
-            </div>
-        `;
-        if (rateLabel) rateLabel.innerText = "0/0 완료";
-        return;
-    }
-
-    const completedCount = ALL_TASKS.filter(t => t.completed).length;
-    if (rateLabel) rateLabel.innerText = `${completedCount}/${ALL_TASKS.length} 완료`;
-
-    ALL_TASKS.forEach(task => {
-        const item = document.createElement('div');
-        item.className = `flex items-start gap-2.5 p-2.5 rounded-xl border transition-all ${
-            task.completed 
-            ? 'bg-slate-50 border-slate-200/50 text-slate-400 line-through' 
-            : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
-        }`;
-
-        const checkedAttr = task.completed ? 'checked' : '';
-
-        item.innerHTML = `
-            <input type="checkbox" onchange="toggleTaskState('${task.id}')" ${checkedAttr} class="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 mt-0.5 cursor-pointer shrink-0">
-            <div class="flex-1 min-w-0">
-                <p class="leading-relaxed select-none break-all text-xs font-medium">${task.text}</p>
-                ${
-                    !task.isManual && task.newsTitle 
-                    ? `<p class="text-[10px] text-slate-400 truncate mt-1 font-normal"><i class="fa-solid fa-link text-[9px] mr-1"></i>${task.newsTitle}</p>` 
-                    : ''
-                }
-            </div>
-            ${
-                task.isManual 
-                ? `<button onclick="deleteTask('${task.id}')" class="text-slate-400 hover:text-red-500 p-0.5 transition-colors shrink-0" title="과제 삭제">
-                    <i class="fa-solid fa-trash-can text-[11px]"></i>
-                   </button>` 
-                : ''
-            }
-        `;
-        container.appendChild(item);
-    });
-}
-
-function addManualTask() {
-    const input = document.getElementById('new-task-input');
-    if (!input) return;
-    const text = input.value.trim();
-    if (!text) {
-        showToast("⚠️ 과제 내용을 입력해주세요.", "error");
-        return;
-    }
-
-    const taskId = `manual-${Date.now()}`;
-    ALL_TASKS.push({
-        id: taskId,
-        text: text,
-        completed: false,
-        isManual: true
-    });
-
-    input.value = '';
-    saveTasksToLocalStorage();
-    renderTasks();
-    showToast("✅ 실무 대처 과제가 추가되었습니다.", "success");
-}
-
-function toggleTaskState(taskId) {
-    const task = ALL_TASKS.find(t => t.id === taskId);
-    if (task) {
-        task.completed = !task.completed;
-        saveTasksToLocalStorage();
-        renderTasks();
-        if (task.completed) {
-            showToast("🎉 과제를 완료했습니다!", "success");
-        }
-    }
-}
-
-function deleteTask(taskId) {
-    ALL_TASKS = ALL_TASKS.filter(t => t.id !== taskId);
-    saveTasksToLocalStorage();
-    renderTasks();
-    showToast("🗑️ 과제가 삭제되었습니다.", "info");
-}
+// Task management logic removed as requested
 
 /* ==========================================
    STREAMING_CHUNK: Text-To-Speech (TTS) Voice Engine
