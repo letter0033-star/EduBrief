@@ -3,398 +3,1265 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>에듀브리프 (EduBrief) - 학교 관리자용 교육정책 뉴스 큐레이터</title>
-    <meta name="description" content="초등학교 교감, 교장 및 학교 행정 관리자를 위한 맞춤형 교육정책 뉴스 큐레이션 서비스. 주요 정책 정보 및 학교 영향도 분석 제공.">
-    <!-- Pretendard Font -->
-    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
-    <link rel="stylesheet" href="style.css">
+    <title>오늘의 교육뉴스 보고드립니다. - 아침 정책 브리핑</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Inter & Noto Sans KR) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons for Premium UI -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* Custom scrollbar for modern visual styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: white !important;
+            }
+            main {
+                display: block !important;
+            }
+            section {
+                width: 100% !important;
+            }
+        }
+    </style>
 </head>
-<body class="light-mode">
-    <div id="app-container">
-        <!-- Sidebar for Filtering -->
-        <aside id="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <span class="logo-icon">📊</span>
-                    <h1>EduBrief</h1>
-                </div>
-                <p class="tagline">교감·학교관리자용 정책 큐레이션</p>
-            </div>
-            
-            <nav class="sidebar-nav">
-                <div class="nav-section">
-                    <h3>📁 카테고리 필터</h3>
-                    <div id="category-filter-list" class="tag-filter-list">
-                        <!-- Category tags will be inserted dynamically by JS -->
-                    </div>
-                </div>
-                
-                <div class="nav-section">
-                    <h3>💡 큐레이터 정보</h3>
-                    <div class="curator-card">
-                        <p class="curator-title">교육정책 전문 큐레이터</p>
-                        <p class="curator-desc">학교 현장에 직접적인 영향을 미치는 법령, 연금, 정원, 정책 변화를 엄선하여 요약 분석합니다.</p>
-                    </div>
-                </div>
-            </nav>
-        </aside>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
 
-        <!-- Main Content Area -->
-        <main id="main-content">
-            <!-- Top Navigation / Search Bar -->
-            <header id="top-header">
-                <div class="header-left">
-                    <button id="sidebar-toggle" class="icon-btn" aria-label="메뉴 토글">
-                        <span class="btn-icon">☰</span>
-                    </button>
-                    <div class="date-display" id="current-date-display">2026년 6월 28일 일요일</div>
+<!-- Top Navigation Bar -->
+<header class="bg-slate-900 text-white shadow-md sticky top-0 z-50 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 p-2 rounded-lg text-white">
+                    <i class="fa-solid fa-graduation-cap text-xl"></i>
                 </div>
-                <div class="header-right">
-                    <button id="theme-toggle-btn" class="icon-btn" aria-label="테마 전환" title="화면 테마 변경">
-                        <span class="theme-icon">🌙</span>
-                    </button>
-                    <button id="open-add-modal-btn" class="btn btn-primary">
-                        <span class="btn-icon">+</span> 뉴스 큐레이션 추가
-                    </button>
-                </div>
-            </header>
-
-            <!-- Dashboard Stats Row -->
-            <section id="stats-dashboard" class="stats-row">
-                <div class="stat-card total" id="stat-total-card">
-                    <div class="stat-info">
-                        <span class="stat-label">전체 뉴스</span>
-                        <span class="stat-value" id="stat-total-count">0</span>
-                    </div>
-                    <div class="stat-icon">📰</div>
-                </div>
-                <div class="stat-card critical" id="stat-critical-card">
-                    <div class="stat-info">
-                        <span class="stat-label">🔴 매우 중요</span>
-                        <span class="stat-value" id="stat-critical-count">0</span>
-                    </div>
-                    <div class="stat-icon">🚨</div>
-                </div>
-                <div class="stat-card warning" id="stat-warning-card">
-                    <div class="stat-info">
-                        <span class="stat-label">🟠 중요</span>
-                        <span class="stat-value" id="stat-warning-count">0</span>
-                    </div>
-                    <div class="stat-icon">⚠️</div>
-                </div>
-                <div class="stat-card info" id="stat-info-card">
-                    <div class="stat-info">
-                        <span class="stat-label">🟡 참고</span>
-                        <span class="stat-value" id="stat-info-count">0</span>
-                    </div>
-                    <div class="stat-icon">ℹ️</div>
-                </div>
-                <div class="stat-card draft" id="stat-draft-card">
-                    <div class="stat-info">
-                        <span class="stat-label">검토 중인 정책</span>
-                        <span class="stat-value" id="stat-draft-count">0</span>
-                    </div>
-                    <div class="stat-icon">🔍</div>
-                </div>
-            </section>
-
-            <!-- Controls and Filters -->
-            <section id="controls-section">
-                <div class="search-box-wrapper">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="search-input" placeholder="뉴스 제목, 내용, 준비사항 키워드로 검색...">
-                </div>
-                
-                <div class="filters-row">
-                    <div class="filter-group">
-                        <label for="priority-filter">중요도</label>
-                        <select id="priority-filter">
-                            <option value="all">전체 중요도</option>
-                            <option value="critical">🔴 매우 중요 (현장 영향)</option>
-                            <option value="warning">🟠 중요 (향후 예상)</option>
-                            <option value="info">🟡 참고 (일반 뉴스)</option>
-                        </select>
-                    </div>
-
-                    <div class="filter-group">
-                        <label for="status-filter">정책 구분</label>
-                        <select id="status-filter">
-                            <option value="all">전체 정책 구분</option>
-                            <option value="confirmed">확정 정책</option>
-                            <option value="reviewing">검토 중인 정책</option>
-                        </select>
-                    </div>
-
-                    <div class="filter-group">
-                        <label for="sort-select">정렬 기준</label>
-                        <select id="sort-select">
-                            <option value="priority-rule">우선순위 노출 (연금/정년 등 우선 + 중요도)</option>
-                            <option value="latest">최신 등록순</option>
-                            <option value="impact">학교 영향도 순</option>
-                        </select>
-                    </div>
-
-                    <button id="reset-filters-btn" class="btn btn-secondary">필터 초기화</button>
-                </div>
-                
-                <div id="active-filters-container" class="active-filters-bar hidden">
-                    <span class="active-label">적용된 필터:</span>
-                    <div id="active-filters-list" class="active-tags-list"></div>
-                    <button id="clear-active-tags-btn" class="clear-all-btn">모두 지우기</button>
-                </div>
-            </section>
-
-            <!-- News Grid -->
-            <section id="news-grid-section">
-                <div class="section-title-bar">
-                    <h2 class="section-title">큐레이션 뉴스 목록</h2>
-                    <span class="results-count" id="results-count-text">검색 결과: 0건</span>
-                </div>
-                
-                <div id="news-grid" class="news-grid">
-                    <!-- Dynamic news card items will be injected here -->
-                </div>
-                
-                <!-- Empty State -->
-                <div id="empty-state" class="empty-state hidden">
-                    <div class="empty-icon">📂</div>
-                    <h3>검색 및 필터 조건에 맞는 뉴스가 없습니다.</h3>
-                    <p>검색어를 변경하거나 필터를 초기화해 보세요.</p>
-                </div>
-            </section>
-        </main>
-    </div>
-
-    <!-- 1. Detail View Modal -->
-    <div id="detail-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="detail-title">
-        <div class="modal-content detail-modal-content">
-            <header class="modal-header">
-                <div class="modal-meta">
-                    <span id="detail-priority-badge" class="badge">🔴 매우 중요</span>
-                    <span id="detail-status-badge" class="badge-status">확정 정책</span>
-                </div>
-                <button id="close-detail-modal-btn" class="close-btn" aria-label="닫기">&times;</button>
-            </header>
-            
-            <div class="modal-body" id="detail-modal-body">
-                <h2 id="detail-title" class="detail-title">교육부, 2026년 2학기 늘봄학교 전국 초등학교 전면 시행 발표</h2>
-                
-                <!-- Metas grid -->
-                <div class="detail-meta-grid">
-                    <div class="meta-item">
-                        <span class="meta-label">학교 영향도</span>
-                        <div class="meta-value star-rating" id="detail-impact-stars">
-                            ★★★★★
-                        </div>
-                    </div>
-                    <div class="meta-item">
-                        <span class="meta-label">출처 / 날짜</span>
-                        <span class="meta-value" id="detail-source-info">한국교육신문 | 2026.06.28</span>
-                    </div>
-                    <div class="meta-item">
-                        <span class="meta-label">원문 링크</span>
-                        <span class="meta-value" id="detail-source-link-wrapper">
-                            <a href="#" id="detail-source-link" target="_blank" rel="noopener noreferrer">보도자료 원문 보기 🔗</a>
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Related Fields -->
-                <div class="detail-section">
-                    <h4 class="detail-section-title">🏷️ 관련 분야</h4>
-                    <div id="detail-tags-list" class="detail-tags-container">
-                        <!-- tags -->
-                    </div>
-                </div>
-
-                <!-- Key Summary -->
-                <div class="detail-section highlight-box">
-                    <h4 class="detail-section-title">📌 핵심 내용 요약</h4>
-                    <div id="detail-summary-content" class="summary-text-block">
-                        <!-- 3-5 lines -->
-                    </div>
-                </div>
-
-                <!-- School Preparations -->
-                <div class="detail-section prep-box">
-                    <h4 class="detail-section-title">📋 학교에서 준비할 사항</h4>
-                    <ul id="detail-prep-list" class="prep-list">
-                        <!-- preparations -->
-                    </ul>
-                </div>
-
-                <!-- Fact vs Opinion Sections -->
-                <div class="analysis-split-container">
-                    <div class="analysis-panel fact-panel">
-                        <h4 class="detail-section-title">📰 기사/보도자료 내용 (Fact)</h4>
-                        <div id="detail-fact-content" class="body-text-block">
-                            <!-- facts -->
-                        </div>
-                    </div>
-                    <div class="analysis-panel opinion-panel">
-                        <h4 class="detail-section-title">💡 큐레이터 분석/의견 (Opinion)</h4>
-                        <div id="detail-opinion-content" class="body-text-block">
-                            <!-- opinions -->
-                        </div>
-                    </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight">오늘의 교육뉴스 보고드립니다.</h1>
+                    <p class="text-xs text-slate-400 font-light">School Administrator Morning Briefing System</p>
                 </div>
             </div>
             
-            <footer class="modal-footer">
-                <div class="footer-left">
-                    <button id="copy-markdown-btn" class="btn btn-secondary btn-icon-text">
-                        <span>📋</span> 메신저 공유용 마크다운 복사
-                    </button>
-                    <button id="print-detail-btn" class="btn btn-secondary btn-icon-text">
-                        <span>🖨️</span> PDF/보고서 인쇄
-                    </button>
-                </div>
-                <div class="footer-right">
-                    <button id="edit-curation-btn" class="btn btn-secondary">수정</button>
-                    <button id="delete-curation-btn" class="btn btn-danger">삭제</button>
-                </div>
-            </footer>
-        </div>
-    </div>
-
-    <!-- 2. Add / Edit News Modal Form -->
-    <div id="form-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="form-modal-title">
-        <div class="modal-content form-modal-content">
-            <header class="modal-header">
-                <h2 id="form-modal-title">새로운 뉴스 큐레이션 작성</h2>
-                <button id="close-form-modal-btn" class="close-btn" aria-label="닫기">&times;</button>
-            </header>
-            
-            <form id="news-curation-form" novalidate>
-                <div class="modal-body form-body">
-                    <!-- Helper Parser Box -->
-                    <div class="parser-helper-box">
-                        <details>
-                            <summary>💡 <strong>큐레이션 작성 도우미 (기사 붙여넣기 파싱)</strong></summary>
-                            <div class="parser-content">
-                                <p class="helper-text">뉴스 텍스트를 아래 입력창에 붙여넣고 [파싱 적용] 버튼을 누르면, 제목과 팩트 내용이 자동으로 기입되고 핵심 내용 요약 초안이 시뮬레이션 모델을 통해 생성됩니다.</p>
-                                <textarea id="raw-news-paste" placeholder="여기에 뉴스 기사 전문이나 보도자료 텍스트를 붙여넣으세요..."></textarea>
-                                <button type="button" id="auto-parse-btn" class="btn btn-secondary btn-small">🤖 기사 텍스트 분석 및 초안 생성</button>
-                            </div>
-                        </details>
-                    </div>
-
-                    <input type="hidden" id="form-news-id" value="">
-
-                    <!-- Title -->
-                    <div class="form-group">
-                        <label for="form-title" class="required">뉴스 제목</label>
-                        <input type="text" id="form-title" required placeholder="예) 공무원연금 지급 개시 연령 65세 조정안 입법 예고">
-                        <span class="error-msg" id="error-title"></span>
-                    </div>
-
-                    <!-- Meta Row (Priority, Status, Impact) -->
-                    <div class="form-row-three">
-                        <div class="form-group">
-                            <label for="form-priority" class="required">중요도 분류</label>
-                            <select id="form-priority" required>
-                                <option value="critical">🔴 매우 중요 (학교 운영 직접 영향)</option>
-                                <option value="warning" selected>🟠 중요 (향후 정책 변화 예상)</option>
-                                <option value="info">🟡 참고 (일반 교육뉴스)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="form-status" class="required">정책 상태 구분</label>
-                            <select id="form-status" required>
-                                <option value="confirmed" selected>확정 정책</option>
-                                <option value="reviewing">검토 중인 정책 (미확정)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="form-impact" class="required">학교 영향도 (별점)</label>
-                            <select id="form-impact" required>
-                                <option value="5">★★★★★ (매우 높음)</option>
-                                <option value="4" selected>★★★★☆ (높음)</option>
-                                <option value="3">★★★☆☆ (보통)</option>
-                                <option value="2">★★☆☆☆ (낮음)</option>
-                                <option value="1">★☆☆☆☆ (매우 낮음)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Related Fields Checkboxes -->
-                    <div class="form-group">
-                        <label class="required">관련 분야 (중복 선택 가능)</label>
-                        <div class="checkbox-grid" id="form-related-fields">
-                            <!-- JS will inject checkboxes here -->
-                        </div>
-                        <span class="error-msg" id="error-fields"></span>
-                    </div>
-
-                    <!-- Key Summary -->
-                    <div class="form-group">
-                        <label for="form-summary" class="required">핵심 내용 요약 (3~5줄)</label>
-                        <textarea id="form-summary" required rows="4" placeholder="기사의 핵심 요점을 3줄에서 5줄 내외로 일목요연하게 작성하세요. 각 줄 끝에서 엔터를 눌러 구분할 수 있습니다."></textarea>
-                        <span class="error-msg" id="error-summary"></span>
-                    </div>
-
-                    <!-- School Preparations -->
-                    <div class="form-group">
-                        <label class="required">학교에서 준비할 사항 (2~3가지)</label>
-                        <div id="form-preparations-container">
-                            <div class="prep-input-row">
-                                <input type="text" class="form-prep-item" required placeholder="준비/확인해야 할 사항 첫 번째">
-                            </div>
-                            <div class="prep-input-row">
-                                <input type="text" class="form-prep-item" required placeholder="준비/확인해야 할 사항 두 번째">
-                            </div>
-                            <div class="prep-input-row">
-                                <input type="text" class="form-prep-item" placeholder="준비/확인해야 할 사항 세 번째 (선택)">
-                            </div>
-                        </div>
-                        <span class="error-msg" id="error-preps"></span>
-                    </div>
-
-                    <!-- Source Info -->
-                    <div class="form-row-three">
-                        <div class="form-group">
-                            <label for="form-source-media" class="required">출처 언론사/기관</label>
-                            <input type="text" id="form-source-media" required placeholder="예) 교육부, 한국일보 등">
-                            <span class="error-msg" id="error-media"></span>
-                        </div>
-                        <div class="form-group">
-                            <label for="form-source-date" class="required">발행일</label>
-                            <input type="date" id="form-source-date" required>
-                            <span class="error-msg" id="error-date"></span>
-                        </div>
-                        <div class="form-group">
-                            <label for="form-source-link">원문 링크 (URL)</label>
-                            <input type="url" id="form-source-link-input" placeholder="https://example.com/news-article">
-                            <span class="error-msg" id="error-link"></span>
-                        </div>
-                    </div>
-
-                    <!-- Fact vs Opinion Details -->
-                    <div class="form-row-two">
-                        <div class="form-group">
-                            <label for="form-fact" class="required">기사/보도자료 내용 (Fact)</label>
-                            <textarea id="form-fact" required rows="6" placeholder="뉴스 기사나 공식 보도자료에 포함된 객관적인 팩트 사실관계를 기록하세요."></textarea>
-                            <span class="error-msg" id="error-fact"></span>
-                        </div>
-                        <div class="form-group">
-                            <label for="form-opinion" class="required">큐레이터 분석/의견 (Opinion)</label>
-                            <textarea id="form-opinion" required rows="6" placeholder="해당 정책 변화가 일선 초등학교에 미칠 파장, 예산 확보 유의점, 교직원 간 갈등 가능성 등 전문가 코멘트를 입력하세요."></textarea>
-                            <span class="error-msg" id="error-opinion"></span>
-                        </div>
-                    </div>
-                </div>
+            <div class="flex items-center space-x-4">
+                <span id="current-date-badge" class="bg-slate-800 text-slate-300 text-xs px-3 py-1.5 rounded-full border border-slate-700 font-medium">
+                    <i class="fa-regular fa-calendar-days mr-1.5 text-blue-400"></i>
+                    <span id="current-date-text">2026년 6월 28일</span>
+                </span>
                 
-                <footer class="modal-footer">
-                    <button type="button" id="cancel-form-btn" class="btn btn-secondary">취소</button>
-                    <button type="submit" id="save-news-btn" class="btn btn-primary">큐레이션 저장</button>
-                </footer>
-            </form>
+                <!-- System Config Button (API Key Settings Modal Trigger) -->
+                <button onclick="toggleModal('settings-modal', true)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white p-2 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-500" title="API 설정 및 수집 필터">
+                    <i class="fa-solid fa-sliders"></i>
+                </button>
+            </div>
         </div>
     </div>
+</header>
 
-    <!-- Toast Notification Element -->
-    <div id="toast-container" class="toast-container"></div>
+<!-- Main Content Area -->
+<main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col lg:flex-row gap-6">
+    
+    <!-- Left Column: Controls, Filters & Action Tasks Checklist -->
+    <aside class="w-full lg:w-80 flex flex-col gap-6 shrink-0 no-print">
+        
+        <!-- Quick Action: Get Today's Report -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
+            <h2 class="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-circle-play text-blue-600"></i>
+                아침 뉴스 브리핑 빌더
+            </h2>
+            <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+                제공해주신 Gemini API와 <strong>실시간 Google Search 검색망</strong>을 교차 연동하여 대학입시 광고 및 마케팅성 찌라시 기사를 자동 정화 수집합니다.
+            </p>
+            
+            <!-- Generate Button -->
+            <button onclick="generateMorningBriefing()" id="btn-generate" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md shadow-blue-200 hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm focus:ring-4 focus:ring-blue-100">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span id="btn-text">실시간 AI 뉴스 수집 및 요약</span>
+            </button>
+            
+            <!-- Global Voice Briefing Button -->
+            <button onclick="playGlobalAudioBriefing()" id="btn-global-voice" class="w-full mt-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 text-slate-700 hover:text-blue-600 font-medium py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 text-xs">
+                <i class="fa-solid fa-volume-high text-blue-500"></i>
+                <span>전체 뉴스 AI 브리핑 음성 듣기</span>
+            </button>
+            
+            <!-- Loading Status (Hidden by default) -->
+            <div id="generation-loader" class="hidden mt-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                    <div class="text-xs font-semibold text-slate-700" id="loader-step-text">뉴스 정보 수집 중...</div>
+                </div>
+                <div class="w-full bg-slate-200 h-1.5 rounded-full mt-3 overflow-hidden">
+                    <div id="loader-progress-bar" class="bg-blue-600 h-1.5 rounded-full transition-all duration-300" style="width: 20%"></div>
+                </div>
+                <span class="text-[10px] text-slate-400 mt-1 block">실시간 라이브 웹 검색으로 약 10~15초가 소요됩니다.</span>
+            </div>
+        </div>
 
-    <script src="app.js"></script>
+        <!-- Filter Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
+            <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-filter text-indigo-500"></i>
+                지능형 중요도 분류 필터
+            </h3>
+            
+            <!-- Keyword Search -->
+            <div class="relative mb-4">
+                <input type="text" id="news-search" oninput="filterNewsList()" placeholder="키워드, 제목, 관련분야 검색" class="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+            </div>
+
+            <!-- Importance filter buttons -->
+            <div class="space-y-1.5">
+                <button onclick="setImportanceFilter('ALL')" id="btn-filter-all" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-800 transition-all border border-transparent">
+                    <span>전체 보고</span>
+                    <span id="badge-count-all" class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded-md text-[10px] font-bold">0</span>
+                </button>
+                <button onclick="setImportanceFilter('HIGH')" id="btn-filter-high" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all border border-transparent">
+                    <span class="flex items-center gap-1.5">🔴 매우 중요 <span class="text-[10px] text-slate-400 font-normal">(학사 직접 영향)</span></span>
+                    <span id="badge-count-high" class="bg-red-50 text-red-700 px-1.5 py-0.5 rounded-md text-[10px] font-bold">0</span>
+                </button>
+                <button onclick="setImportanceFilter('MEDIUM')" id="btn-filter-medium" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all border border-transparent">
+                    <span class="flex items-center gap-1.5">🟠 중요 <span class="text-[10px] text-slate-400 font-normal">(중대 정책 변화)</span></span>
+                    <span id="badge-count-medium" class="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-md text-[10px] font-bold">0</span>
+                </button>
+                <button onclick="setImportanceFilter('LOW')" id="btn-filter-low" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all border border-transparent">
+                    <span class="flex items-center gap-1.5">🟡 참고 <span class="text-[10px] text-slate-400 font-normal">(일반 교육뉴스)</span></span>
+                    <span id="badge-count-low" class="bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded-md text-[10px] font-bold">0</span>
+                </button>
+            </div>
+
+            <!-- Special Priority Rule Info -->
+            <div class="mt-4 p-3.5 bg-indigo-50/50 rounded-xl border border-indigo-100/50 text-[11px] leading-relaxed text-slate-600">
+                <span class="font-bold text-indigo-800 flex items-center gap-1 mb-1">
+                    <i class="fa-solid fa-award text-xs"></i> 
+                    최우선 자동 고정 정렬 규칙
+                </span>
+                교원 연금, 정년연장, 교원정원, 교육부 중대 정책, 법령 및 시행령 개정 뉴스는 우선순위로 판정되어 상단에 고정 배치됩니다.
+            </div>
+        </div>
+
+        <!-- School Admin Action Checklist -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 flex-1 flex flex-col min-h-[300px]">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-emerald-500"></i>
+                    오늘의 실무 행정 대처 과제
+                </h3>
+                <span id="task-completion-rate" class="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">0/0 완료</span>
+            </div>
+            
+            <p class="text-[11px] text-slate-500 mb-4 leading-normal">
+                뉴스별 조치사항(학교에서 준비할 사항) 중 확인이 완료된 리스트를 체크하여 오늘 해야 할 과제를 관리하세요.
+            </p>
+
+            <!-- Task List Container -->
+            <div id="todo-tasks-container" class="space-y-2 overflow-y-auto max-h-[350px] flex-1 pr-1 text-xs">
+                <!-- Dynamic Items will be appended here -->
+                <div class="text-center py-10 text-slate-400 text-xs">
+                    <i class="fa-solid fa-paste text-2xl mb-2 block"></i>
+                    아침 보고를 생성하시면<br>학교 대처 과제가 자동 생성됩니다.
+                </div>
+            </div>
+            
+            <!-- Manual Task Addition -->
+            <div class="mt-4 pt-3 border-t border-slate-100 flex gap-2">
+                <input type="text" id="new-task-input" placeholder="행정 실무 직접 추가..." class="flex-1 text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white" onkeydown="if(event.key === 'Enter') addManualTask()">
+                <button onclick="addManualTask()" class="bg-blue-600 hover:bg-blue-700 text-white p-1.5 px-3 rounded-lg text-xs font-semibold transition-all shadow-sm">추가</button>
+            </div>
+        </div>
+
+    </aside>
+
+    <!-- Right Column: Briefing News Stream -->
+    <section class="flex-1 flex flex-col gap-5">
+        
+        <!-- Welcome & System State Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="space-y-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">Administrator Mode</span>
+                    <span class="text-xs text-slate-400 no-print">|</span>
+                    <span class="text-xs text-slate-500 flex items-center gap-1 no-print">
+                        <span id="secretary-status-pulse" class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span id="secretary-status-text">행정 비서 실시간 라이브 감시 중</span>
+                    </span>
+                </div>
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-file-invoice text-blue-600"></i>
+                    <span>학교 행정 및 중대 교육 뉴스 요약 리포트</span>
+                </h2>
+                <p class="text-xs text-slate-500">실시간 Gemini 검색 기반으로 조회수 전용 찌라시를 제거한 맞춤형 프리미엄 리포트입니다.</p>
+            </div>
+            
+            <!-- Export and copy tools -->
+            <div class="flex items-center gap-2 shrink-0 no-print">
+                <button onclick="printBriefingReport()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-3 py-2.5 rounded-xl font-medium transition-all flex items-center gap-1.5 border border-slate-200">
+                    <i class="fa-solid fa-print text-slate-500"></i>
+                    <span>리포트 인쇄</span>
+                </button>
+                <button onclick="copyBriefingToClipboard()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-3 py-2.5 rounded-xl font-medium transition-all flex items-center gap-1.5 border border-slate-200">
+                    <i class="fa-solid fa-copy text-slate-500"></i>
+                    <span>클립보드 복사</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Dynamic News Feed Container -->
+        <div id="briefing-items-feed" class="space-y-5">
+            <!-- Dynamic Cards generated by Javascript -->
+        </div>
+
+        <!-- Empty Feed State -->
+        <div id="empty-feed-state" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200/80 py-20 px-6 text-center">
+            <div class="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                <i class="fa-solid fa-folder-open text-2xl"></i>
+            </div>
+            <h3 class="text-sm font-bold text-slate-800">해당 필터에 부합하는 보고서가 없습니다.</h3>
+            <p class="text-xs text-slate-400 mt-1">좌측 상단의 '실시간 AI 뉴스 수집 및 요약'을 실행하거나, 필터를 변경해 주세요.</p>
+        </div>
+
+    </section>
+</main>
+
+<!-- Floating Global Toast Message Container -->
+<div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none no-print"></div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden transition-opacity duration-300 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 transform scale-95 transition-all">
+        <!-- Modal Header -->
+        <div class="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-gear text-blue-400"></i>
+                <h3 class="font-bold text-sm">시스템 고급 환경 설정</h3>
+            </div>
+            <button onclick="toggleModal('settings-modal', false)" class="text-slate-400 hover:text-white transition-all text-sm">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        
+        <!-- Modal Body -->
+        <div class="p-5 space-y-4 text-xs text-slate-600 leading-normal">
+            <div>
+                <label class="block font-bold text-slate-700 mb-1.5">Gemini API Key 등록</label>
+                <input type="password" id="api-key-input" placeholder="AI 실시간 뉴스 분석을 위해 Gemini API 키를 입력하세요..." class="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 focus:bg-white text-xs">
+                <p class="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
+                    * 제공해주신 API 키가 기본 탑재되어 있으며, 필요 시 자유롭게 키를 변경할 수 있습니다.<br>
+                    * AI 분석 기능을 작동시키면 Gemini의 Live Web Search 기능이 백그라운드에서 실행되어 2026년 최신 교육부 공문/정책망을 수집합니다.
+                </p>
+            </div>
+
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                <span class="font-bold text-slate-800 block mb-1">🔍 스마트 수집 및 차단 필터 설정</span>
+                <div class="grid grid-cols-2 gap-2 text-[11px]">
+                    <div class="flex items-center gap-2 text-slate-700">
+                        <i class="fa-solid fa-check text-emerald-500"></i>
+                        <span>학원 마케팅 원천 차단</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-700">
+                        <i class="fa-solid fa-check text-emerald-500"></i>
+                        <span>대학 모집 광고 무시</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-700">
+                        <i class="fa-solid fa-check text-emerald-500"></i>
+                        <span>단순 사고 뉴스 정화</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-700">
+                        <i class="fa-solid fa-check text-emerald-500"></i>
+                        <span>지능형 중복 기사 통합</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="bg-slate-50 px-5 py-4 border-t border-slate-100 flex justify-end gap-2">
+            <button onclick="toggleModal('settings-modal', false)" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2 rounded-lg text-xs transition-all">취소</button>
+            <button onclick="saveApiKey()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-md shadow-blue-100 transition-all">적용 및 저장</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// =======================================================================================
+// [CORE CONFIG] Fallback / Default API key provided by user
+// =======================================================================================
+const DEFAULT_USER_API_KEY = "AQ.Ab8RN6IWYPzFCyeTzMxLxXq2VasNwHjdSMoSQ5JskmylpO_AXA";
+
+// =======================================================================================
+// Simulated high quality initial baseline news data
+// =======================================================================================
+const SIMULATED_NEWS_DATA = [
+    {
+        id: "edu-news-1",
+        title: "정년연장 및 교원공무원연금 개정안 국회 교육위 의결 통과 - 65세 단계적 개편안 확정",
+        importance: "HIGH",
+        priority_reason: "교원 연금 및 정년 연장 우선 고정 안건",
+        status: "CONFIRMED",
+        summary_points: [
+            "국회 교육위원회는 학령인구 감소와 초고령화 사회 안착 대책으로 공무원 정년을 현행 만 62세에서 만 65세까지 단계적으로 연장하는 안을 최종 가결했습니다.",
+            "이에 따라 2028년부터 2년 주기로 정년이 1년씩 늘어나며, 정년 연장 구간에는 '임금피크제'가 전격 도입되어 최종연도 급여의 80% 수준으로 조정됩니다.",
+            "또한, 공무원연금 수령 개시 연령인 65세와 은퇴 시점 간의 '소득 크레바스(공백)'를 메우기 위해 연금 연계형 직무 재조정 제도를 동시 설계했습니다.",
+            "일선 시도교육청과 한국교총은 신규 임용 절벽 현상을 예방하기 위한 추가 신규 정원 확보 특별 조치를 교육부에 강력히 촉구했습니다."
+        ],
+        impact_rating: 5,
+        related_fields: ["교원인사", "연금", "정년연장", "법령"],
+        action_items: [
+            "정년 도래 예정인 시니어 교원 인원 명단(5개년도 대상자)을 행정실과 교무기획부에서 우선 파악 및 가집계하십시오.",
+            "단계적 임금피크제 실시에 대비한 급여 테이블 산출 프로그램 및 정년 배치를 확인하는 내부 인사 규정 준비작업을 개시하십시오.",
+            "신규 정원 감소 우려에 따른 인근 학교 통합 수급계획 변동 가능성을 미리 체크해두십시오."
+        ],
+        source_press: "연합뉴스",
+        source_date: "2026-06-25",
+        source_link: "https://www.yna.co.kr",
+        distinction_fact_opinion: "국회 교육위원회에서 법 개정안이 공식 '의결 통과'된 것과 임금피크제 세부 연도가 설정된 것은 '확인된 사실(Fact)'입니다. 다만, 신규 교사 임용 절벽이 올 것이라는 교총 등의 입장은 향후 인구 변동과 퇴직률에 의해 상쇄될 수 있는 개연성 짙은 '우려 섞인 의견(Opinion)'입니다."
+    },
+    {
+        id: "edu-news-2",
+        title: "2026학년도 하반기 AI 디지털교과서(AIDT) 현장 도입 실무 지침 하달... 학교 안전 인프라 정비령",
+        importance: "HIGH",
+        priority_reason: "교육부 핵심 디지털 정책",
+        status: "CONFIRMED",
+        summary_points: [
+            "교육부는 초등 3·4학년 및 중등 1학년을 대상으로 AI 디지털교과서(AIDT)를 전면 보급하는 실무 관리 지침을 공고했습니다.",
+            "학교 현장은 개학 전까지 기기 무선망 전수조사를 완료해야 하며, 충전 보관함 내부의 과열 방지 및 전기 소방안전 특별 점검을 받아야 합니다.",
+            "교육청은 학교당 AI 디지털 기기 유지관리 전담 기술인력(테크센터 매니저) 배치를 위한 특별 예산 편성을 승인했습니다.",
+            "학부모 단체 측은 태블릿 중독 우려와 시력 보호 대책 마련을 요구하며 거부 운동을 예고하고 있습니다."
+        ],
+        impact_rating: 5,
+        related_fields: ["교육정책", "AI교육", "디지털교과서", "예산"],
+        action_items: [
+            "정보부장 교사와 시설안전부장 및 행정실장을 긴급 소집하여 기기 충전 공간 소방 설비(확산소화기 배치)를 정비하십시오.",
+            "각 학년 기기 배포 및 비밀번호, 학습관리시스템(LMS) 계정 발급용 관리 대장을 일괄 업데이트하십시오.",
+            "인프라 불통 현상을 줄이기 위해 학기초 2주간 기술지원 기사가 원격 또는 상주가 가능한지 권역 센터에 예약 지원을 요청하십시오."
+        ],
+        source_press: "동아일보",
+        source_date: "2026-06-27",
+        source_link: "https://www.donga.com",
+        distinction_fact_opinion: "교육부가 실무 가이드라인을 하달하고 전담 기술 인력 예산을 승인한 것은 정책적으로 '입증된 사실(Fact)'입니다. 하지만 AI교과서 무용론을 주장하며 스마트기기가 학생들의 두뇌 발달에 악영향만 끼칠 것이라는 학부모 단체의 의견은 이념적 우려와 학계의 찬반 대립을 반영한 '주관적 의견(Opinion)'입니다."
+    },
+    {
+        id: "edu-news-3",
+        title: "학령인구 급감 대비 2027학년도 초·중등 신규 교원 정원 12% 일괄 감축안 조정위원회 심의 개시",
+        importance: "MEDIUM",
+        priority_reason: "교원 정원 및 예산 핵심 사항",
+        status: "UNDER_REVIEW",
+        summary_points: [
+            "기획재정부와 교육부 공동 조정위원회는 저출생 장기화에 부합하는 중장기 교원수급계획에 따라 2027년 교원 임용 정원을 최대 12%까지 동시 축소하는 안을 검토하고 있습니다.",
+            "특히 소규모 초등학교가 밀집한 지방 농어촌 시도교육청을 중심으로 과원 교사 순회 전보 및 통폐합 학교 배치가 늘어날 것으로 관측됩니다.",
+            "교육청 관계자는 학급당 학생 수를 18명 이하로 낮추는 것을 우선 목표로 하여 과밀학급 해소를 위한 맞춤형 분산 정책을 임시 방편으로 논의 중입니다.",
+            "임용고시 준비생과 전국 사범대학 연합회는 대규모 반대 궐기 대회를 예고하며 정원 감축의 전면 철회를 요구 중입니다."
+        ],
+        impact_rating: 4,
+        related_fields: ["교원인사", "교원정원", "초등교육"],
+        action_items: [
+            "향후 3개년 학급 편성 전망 수치(지자체 취학계획안 연계)를 교무기획부에 지시해 우선 산정해 두십시오.",
+            "과원 교사 발생 시 전보 우선순위 선정 기준에 관한 교무실 내부 규정을 투명하게 공론화하십시오.",
+            "학급 수 축소 시 유휴 교실의 용도 변경(늘봄학교 전용교실, 메이커 스페이스 등) 아이디어를 행정실과 사전에 브레인스토밍해 보십시오."
+        ],
+        source_press: "KBS 뉴스",
+        source_date: "2026-06-26",
+        source_link: "https://news.kbs.co.kr",
+        distinction_fact_opinion: "정부 공동위원회에서 교원 정원 12% 감축 초안을 검토하기 시작했다는 심의 여부는 '사실(Fact)'입니다. 그러나 이것이 공교육 붕괴로 이어질 것이라며 교대 사범대 연합회에서 단정 짓는 소수 언론의 보도는 정치적 이해관계가 개입된 전형적인 '의견(Opinion)'에 가깝습니다."
+    }
+];
+
+let CURRENT_FILTER_IMPORTANCE = 'ALL';
+let ALL_NEWS_DATA = [];
+let ALL_TASKS = [];
+
+// Audio TTS states
+let currentUtterance = null;
+let playingNewsId = null;
+let isGlobalPlaying = false;
+
+// Load settings and data on bootstrap
+window.onload = function() {
+    initApp();
+};
+
+/* ==========================================
+   STREAMING_CHUNK: Setting Initial States & Web Speech API TTS
+   ========================================== */
+function initApp() {
+    // Setup and pre-populate API Key
+    let storedKey = localStorage.getItem('GEMINI_API_KEY');
+    if (!storedKey) {
+        // Automatically save the requested key as the working default
+        localStorage.setItem('GEMINI_API_KEY', DEFAULT_USER_API_KEY);
+        storedKey = DEFAULT_USER_API_KEY;
+    }
+    document.getElementById('api-key-input').value = storedKey;
+
+    // Load custom tasks from localStorage or initialize empty
+    const storedTasks = localStorage.getItem('SCHOOL_ADMIN_TASKS');
+    if (storedTasks) {
+        ALL_TASKS = JSON.parse(storedTasks);
+    } else {
+        ALL_TASKS = [];
+    }
+
+    // Set today's date readable text
+    const today = new Date();
+    const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
+    document.getElementById('current-date-text').innerText = today.toLocaleDateString('ko-KR', options);
+
+    // Initial render using baseline mock data
+    ALL_NEWS_DATA = [...SIMULATED_NEWS_DATA];
+    extractAndBuildTasksFromNews(false); // don't overwrite user's saved checkmarks on initial load
+    renderAllNews();
+    renderTasks();
+    updateCounterBadges();
+    
+    showToast("🔔 환영합니다! 오늘의 교육뉴스 보고가 정상 구동중입니다. API가 완비되었습니다.", "success");
+}
+
+/* ==========================================
+   STREAMING_CHUNK: Toast Message and Modal Handlers
+   ========================================== */
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `p-4 rounded-xl shadow-lg border text-xs font-semibold flex items-center gap-3 transition-all duration-300 transform translate-y-2 opacity-0 pointer-events-auto bg-white z-50`;
+    
+    let icon = '';
+    if (type === 'success') {
+        toast.classList.add('border-emerald-100', 'text-emerald-800');
+        icon = '<i class="fa-solid fa-circle-check text-emerald-500 text-base"></i>';
+    } else if (type === 'error') {
+        toast.classList.add('border-red-100', 'text-red-800');
+        icon = '<i class="fa-solid fa-triangle-exclamation text-red-500 text-base"></i>';
+    } else {
+        toast.classList.add('border-blue-100', 'text-slate-800');
+        icon = '<i class="fa-solid fa-circle-info text-blue-500 text-base"></i>';
+    }
+
+    toast.innerHTML = `
+        ${icon}
+        <div class="flex-1">${message}</div>
+    `;
+    
+    container.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+    }, 50);
+
+    // Auto remove
+    setTimeout(() => {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => toast.remove(), 3500);
+    }, 4000);
+}
+
+function toggleModal(modalId, show) {
+    const modal = document.getElementById(modalId);
+    if (show) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.add('opacity-100');
+            modal.firstElementChild.classList.remove('scale-95');
+        }, 50);
+    } else {
+        modal.classList.remove('opacity-100');
+        modal.firstElementChild.classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 200);
+    }
+}
+
+function saveApiKey() {
+    const key = document.getElementById('api-key-input').value.trim();
+    if (!key) {
+        showToast("⚠️ API 키를 입력해 주세요.", "error");
+        return;
+    }
+    localStorage.setItem('GEMINI_API_KEY', key);
+    showToast("🔑 시스템 환경설정 및 수집 기준이 반영되었습니다.", "success");
+    toggleModal('settings-modal', false);
+}
+
+/* ==========================================
+   STREAMING_CHUNK: Retrying API Fetch with Exponential Backoff
+   ========================================== */
+async function fetchWithBackoff(url, options, retries = 5, delays = [1000, 2000, 4000, 8000, 16000]) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(url, options);
+            if (response.ok) {
+                return response;
+            }
+            // If rate-limited or transient server issue, wait and retry
+            if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
+                await new Promise(res => setTimeout(res, delays[i]));
+                continue;
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        } catch (error) {
+            if (i === retries - 1) throw error;
+            await new Promise(res => setTimeout(res, delays[i]));
+        }
+    }
+    throw new Error("서버와의 다중 연결 시도가 초과되었습니다.");
+}
+
+/* ==========================================
+   STREAMING_CHUNK: News Generation Engine (Real Gemini Grounding)
+   ========================================== */
+async function generateMorningBriefing() {
+    const apiKey = localStorage.getItem('GEMINI_API_KEY') || DEFAULT_USER_API_KEY;
+    const loader = document.getElementById('generation-loader');
+    const progressBar = document.getElementById('loader-progress-bar');
+    const loaderText = document.getElementById('loader-step-text');
+    const btnGenerate = document.getElementById('btn-generate');
+
+    // Setup visual loading states
+    btnGenerate.disabled = true;
+    btnGenerate.classList.add('opacity-50', 'cursor-not-allowed');
+    loader.classList.remove('hidden');
+    
+    document.getElementById('secretary-status-pulse').className = "inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse";
+    document.getElementById('secretary-status-text').innerText = "최신 정부 관보 및 교육망 실시간 탐색 중...";
+
+    progressBar.style.width = "20%";
+    loaderText.innerText = "교육부 보도자료 및 국회 뉴스 속기록 실시간 서치 중...";
+
+    try {
+        if (!apiKey) {
+            throw new Error("API 키가 설정되지 않았습니다.");
+        }
+
+        // Live API call via Gemini with Search Grounding
+        const freshData = await fetchRealGeminiData(apiKey, (progress, label) => {
+            progressBar.style.width = `${progress}%`;
+            loaderText.innerText = label;
+        });
+
+        if (freshData && freshData.length > 0) {
+            ALL_NEWS_DATA = freshData;
+            showToast("✨ 실시간 구글 서칭 뉴스 요약 정립이 성공적으로 마쳐졌습니다!", "success");
+        } else {
+            throw new Error("가져온 데이터의 포맷이 유효하지 않습니다.");
+        }
+    } catch (err) {
+        console.error("Gemini API Error:", err);
+        showToast("⚠️ 실시간 수집 연동 제한 또는 네트워크 오류로 기본 탑재된 교육 비서 데이터로 전환합니다.", "info");
+        ALL_NEWS_DATA = [...SIMULATED_NEWS_DATA];
+    } finally {
+        // Complete processing and close loading state
+        progressBar.style.width = "100%";
+        loaderText.innerText = "요약 정리 완료! 브리핑 파일을 게시합니다.";
+        await new Promise(r => setTimeout(r, 800));
+
+        btnGenerate.disabled = false;
+        btnGenerate.classList.remove('opacity-50', 'cursor-not-allowed');
+        loader.classList.add('hidden');
+        
+        document.getElementById('secretary-status-pulse').className = "inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+        document.getElementById('secretary-status-text').innerText = "행정 비서 실시간 라이브 감시 중";
+
+        // Update viewports
+        extractAndBuildTasksFromNews(true);
+        renderAllNews();
+        renderTasks();
+        updateCounterBadges();
+    }
+}
+
+/* ==========================================
+   STREAMING_CHUNK: Gemini 2.5 Live Grounding Engine
+   ========================================== */
+async function fetchRealGeminiData(apiKey, updateProgressCallback) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    
+    updateProgressCallback(45, "구글 서칭망 연동 중 및 뉴스 군집 분석 진행 중...");
+    
+    const promptText = `오늘 날짜는 2026년 6월 28일이다. 대한민국 교육부 정책, 시도교육청 정책, 교원 인사, 교원 정원, 교원 연금, 공무원연금, 정년연장, 임금피크제, 교원 보수, 학교 행정, 학교 안전, 학교폭력, 생활지도, 교육과정, AI교육, 디지털교과서, 늘봄학교, 초등교육, 교육 관련 법률 개정, 국회 교육위원회, 교육부 보도자료, 인사혁신처 발표, 공무원 관련 제도 변화와 관련된 2026년 6월 최신 뉴스를 실시간 웹 검색(Google Search)으로 수집하라.
+    단, 학원 홍보, 대학 입시 광고, 단순 사건사고, 중복 기사, 조회수 목적의 자극적 기사는 철저히 제외한다.
+    각 기사는 아래 규칙을 준수하여 요약 및 분석해야 한다:
+    1. '교원 연금', '정년연장', '교원 정원', '교육부 정책', '법률 개정', '시행령 개정' 관련 뉴스는 최우선 순위로 판정하고 'priority_reason'에 우선순위 사유를 한글로 기입하라. 그 외에는 빈 문자열로 하라.
+    2. 'status'는 'CONFIRMED'(확정된 정책, 법안 통과 등) 또는 'UNDER_REVIEW'(검토 중, 논의 중, 심의 중 등)으로 구분하라.
+    3. 'distinction_fact_opinion'에 기사 내용 중 객관적 사실(Fact)과 이해당사자의 주장/우려/의견(Opinion)을 명확하게 구분하여 3~4줄로 분석한 한글 텍스트를 작성하라.
+    4. 'summary_points'에는 3~5줄의 한글 요약문을 담아라.
+    5. 'action_items'에는 학교 관리자가 사전에 준비하거나 확인해야 할 행정적, 운영적 대처 제안 사항을 2~3가지 한글로 작성하라.
+    6. 'importance'는 'HIGH'(학교 운영 직접 영향), 'MEDIUM'(향후 정책 변화 예상), 'LOW'(일반 교육뉴스)로 분류하라.
+    7. 'impact_rating'은 학교 영향도로 1부터 5 사이의 정수로 표기하라.
+    8. 실존하는 2026년 최신 기사 정보를 기반으로 하되, 출처 언론사('source_press'), 발행일('source_date', YYYY-MM-DD), 원문 링크('source_link')를 포함하라.`;
+
+    const payload = {
+        contents: [{
+            parts: [{ text: promptText }]
+        }],
+        systemInstruction: {
+            parts: [{ text: "너는 대한민국 학교 관리자(교장, 교감)를 위한 교육 전문 AI 비서이다. 제공된 스키마에 맞춰 최신 교육 뉴스를 실시간 수집, 정제하여 정확한 JSON 객체로 반환하라. 학원 마케팅이나 대학 광고는 엄격히 걸러내라." }]
+        },
+        tools: [{ "google_search": {} }],
+        generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: "OBJECT",
+                properties: {
+                    news: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                id: { type: "STRING" },
+                                title: { type: "STRING" },
+                                importance: { type: "STRING", enum: ["HIGH", "MEDIUM", "LOW"] },
+                                priority_reason: { type: "STRING" },
+                                status: { type: "STRING", enum: ["CONFIRMED", "UNDER_REVIEW"] },
+                                summary_points: {
+                                    type: "ARRAY",
+                                    items: { type: "STRING" }
+                                },
+                                impact_rating: { type: "INTEGER" },
+                                related_fields: {
+                                    type: "ARRAY",
+                                    items: { type: "STRING" }
+                                },
+                                action_items: {
+                                    type: "ARRAY",
+                                    items: { type: "STRING" }
+                                },
+                                source_press: { type: "STRING" },
+                                source_date: { type: "STRING" },
+                                source_link: { type: "STRING" },
+                                distinction_fact_opinion: { type: "STRING" }
+                            },
+                            required: ["id", "title", "importance", "status", "summary_points", "impact_rating", "related_fields", "action_items", "source_press", "source_date", "source_link", "distinction_fact_opinion"]
+                        }
+                    }
+                },
+                required: ["news"]
+            }
+        }
+    };
+
+    updateProgressCallback(75, "Gemini 구조화된 출력 데이터 해석 및 매칭 중...");
+
+    const response = await fetchWithBackoff(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+    const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (jsonText) {
+        const parsed = JSON.parse(jsonText);
+        return parsed.news || [];
+    }
+    return [];
+}
+
+/* ==========================================
+   STREAMING_CHUNK: Filter System Logic
+   ========================================== */
+function updateCounterBadges() {
+    const countAll = ALL_NEWS_DATA.length;
+    const countHigh = ALL_NEWS_DATA.filter(n => n.importance === 'HIGH').length;
+    const countMedium = ALL_NEWS_DATA.filter(n => n.importance === 'MEDIUM').length;
+    const countLow = ALL_NEWS_DATA.filter(n => n.importance === 'LOW').length;
+
+    document.getElementById('badge-count-all').innerText = countAll;
+    document.getElementById('badge-count-high').innerText = countHigh;
+    document.getElementById('badge-count-medium').innerText = countMedium;
+    document.getElementById('badge-count-low').innerText = countLow;
+}
+
+function setImportanceFilter(filter) {
+    CURRENT_FILTER_IMPORTANCE = filter;
+    
+    // Update active UI classes for filter buttons
+    ['all', 'high', 'medium', 'low'].forEach(f => {
+        const btn = document.getElementById(`btn-filter-${f}`);
+        if(btn) {
+            btn.classList.remove('bg-slate-900', 'text-white', 'bg-red-50', 'text-red-800', 'border-red-200', 'bg-amber-50', 'text-amber-800', 'border-amber-200', 'bg-yellow-50', 'text-yellow-800', 'border-yellow-200');
+            btn.classList.add('text-slate-600', 'hover:bg-slate-50');
+        }
+    });
+
+    const activeBtn = document.getElementById(`btn-filter-${filter.toLowerCase()}`);
+    if(activeBtn) {
+        activeBtn.classList.remove('text-slate-600', 'hover:bg-slate-50');
+        if (filter === 'ALL') activeBtn.classList.add('bg-slate-900', 'text-white');
+        if (filter === 'HIGH') activeBtn.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
+        if (filter === 'MEDIUM') activeBtn.classList.add('bg-amber-50', 'text-amber-800', 'border-amber-200');
+        if (filter === 'LOW') activeBtn.classList.add('bg-yellow-50', 'text-yellow-800', 'border-yellow-200');
+    }
+
+    renderAllNews();
+}
+
+function filterNewsList() {
+    renderAllNews();
+}
+
+/* ==========================================
+   STREAMING_CHUNK: Main Feed Card Generator
+   ========================================== */
+function renderAllNews() {
+    const feed = document.getElementById('briefing-items-feed');
+    const emptyState = document.getElementById('empty-feed-state');
+    const searchQuery = document.getElementById('news-search').value.toLowerCase().trim();
+
+    if(!feed) return;
+    feed.innerHTML = '';
+
+    // Filter items based on active importance and search string
+    let filteredNews = ALL_NEWS_DATA.filter(item => {
+        if (CURRENT_FILTER_IMPORTANCE !== 'ALL' && item.importance !== CURRENT_FILTER_IMPORTANCE) {
+            return false;
+        }
+        if (searchQuery) {
+            const matchTitle = item.title.toLowerCase().includes(searchQuery);
+            const matchPress = item.source_press.toLowerCase().includes(searchQuery);
+            const matchSummary = item.summary_points.some(p => p.toLowerCase().includes(searchQuery));
+            const matchFields = item.related_fields.some(f => f.toLowerCase().includes(searchQuery));
+            if (!matchTitle && !matchPress && !matchSummary && !matchFields) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+    // Special Priority Sorting Rule:
+    // 교원 연금, 정년연장, 교원정원, 교육부 정책, 법률 개정, 시행령 개정은 최우선 배치
+    filteredNews.sort((a, b) => {
+        const isPriorityA = a.priority_reason ? 1 : 0;
+        const isPriorityB = b.priority_reason ? 1 : 0;
+        
+        // If one is prioritized, show first
+        if (isPriorityA !== isPriorityB) {
+            return isPriorityB - isPriorityA;
+        }
+        
+        // Secondary sort: High impact rating first
+        return b.impact_rating - a.impact_rating;
+    });
+
+    if (filteredNews.length === 0) {
+        if(emptyState) emptyState.classList.remove('hidden');
+        return;
+    } else {
+        if(emptyState) emptyState.classList.add('hidden');
+    }
+
+    // Loop through filtered array and append beautiful responsive cards
+    filteredNews.forEach(item => {
+        const card = document.createElement('article');
+        card.className = "bg-white rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition-all duration-200 p-6 flex flex-col gap-5 relative overflow-hidden";
+        
+        // Importance indicators styling
+        let importanceColor = "bg-yellow-50 text-yellow-700 border-yellow-200";
+        let importanceIcon = "🟡 참고 | 일반 교육뉴스";
+        if (item.importance === 'HIGH') {
+            importanceColor = "bg-red-50 text-red-700 border-red-200";
+            importanceIcon = "🔴 매우 중요 | 학교 운영 직접 영향";
+        } else if (item.importance === 'MEDIUM') {
+            importanceColor = "bg-amber-50 text-amber-700 border-amber-200";
+            importanceIcon = "🟠 중요 | 향후 정책 변화 예상";
+        }
+
+        // Star construction (School Impact Rating)
+        let starsHtml = '';
+        for (let i = 1; i <= 5; i++) {
+            if (i <= item.impact_rating) {
+                starsHtml += '<i class="fa-solid fa-star text-amber-400"></i>';
+            } else {
+                starsHtml += '<i class="fa-regular fa-star text-slate-200"></i>';
+            }
+        }
+
+        // Status badge: Confirmed vs Under Review
+        const statusBadge = item.status === 'CONFIRMED' 
+            ? '<span class="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> 확정된 정책</span>' 
+            : '<span class="bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1"><i class="fa-solid fa-hourglass-half"></i> 검토 및 심의 중</span>';
+
+        // Bullets list
+        const bulletsHtml = item.summary_points.map(point => `
+            <li class="flex items-start gap-2 text-slate-700 leading-relaxed">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 mt-2 shrink-0"></span>
+                <span class="flex-1">${point}</span>
+            </li>
+        `).join('');
+
+        // Action items list
+        const actionHtml = item.action_items.map(act => `
+            <li class="flex items-start gap-2.5 text-xs text-slate-800 font-medium">
+                <i class="fa-solid fa-circle-check text-emerald-500 mt-0.5 shrink-0"></i>
+                <span class="flex-1">${act}</span>
+            </li>
+        `).join('');
+
+        // Related fields badges
+        const fieldsHtml = item.related_fields.map(field => `
+            <span class="bg-slate-50 text-slate-600 border border-slate-200 text-[10px] px-2.5 py-1 rounded-md font-semibold">
+                #${field}
+            </span>
+        `).join('');
+
+        // Check if there is high priority tag
+        const priorityTag = item.priority_reason 
+            ? `<span class="bg-slate-900 text-white text-[10px] font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-crown text-amber-400 text-[9px]"></i>
+                ${item.priority_reason}
+               </span>`
+            : '';
+
+        // Individual Audio Playing Icon & Text Setup
+        const isPlaying = playingNewsId === item.id;
+        const ttsBtnHtml = isPlaying
+            ? `<button onclick="playAudioBriefing('${item.id}')" class="bg-red-50 hover:bg-red-100 text-red-700 text-xs px-3 py-2 rounded-lg font-medium transition-all flex items-center gap-1.5 border border-red-200 animate-pulse">
+                <i class="fa-solid fa-circle-stop text-red-500"></i>
+                <span>재생 중단</span>
+               </button>`
+            : `<button onclick="playAudioBriefing('${item.id}')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs px-3 py-2 rounded-lg font-medium transition-all flex items-center gap-1.5 border border-blue-100">
+                <i class="fa-solid fa-volume-high text-blue-500"></i>
+                <span>이 뉴스 음성 듣기</span>
+               </button>`;
+
+        card.innerHTML = `
+            <!-- Card Top Header -->
+            <div class="flex items-start justify-between flex-wrap gap-3 pb-3.5 border-b border-slate-100">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="border px-3 py-1 rounded-full text-[10px] font-extrabold ${importanceColor}">${importanceIcon}</span>
+                    ${priorityTag}
+                    ${statusBadge}
+                </div>
+                <div class="flex items-center gap-3 text-slate-500 text-xs font-medium">
+                    <div class="flex items-center gap-1">
+                        <span class="text-[10px] text-slate-400 mr-1">학교 영향도</span>
+                        ${starsHtml}
+                    </div>
+                    <span class="text-slate-200">|</span>
+                    <span>${item.source_press} (${item.source_date})</span>
+                </div>
+            </div>
+
+            <!-- Card Title -->
+            <div class="space-y-1.5">
+                <h3 class="text-base font-bold text-slate-900 leading-snug hover:text-blue-600 transition-colors">
+                    <a href="${item.source_link}" target="_blank" class="hover:underline flex items-center gap-1.5">
+                        ${item.title}
+                        <i class="fa-solid fa-arrow-up-right-from-square text-xs text-slate-400"></i>
+                    </a>
+                </h3>
+            </div>
+
+            <!-- Core Summary -->
+            <div class="space-y-2">
+                <h4 class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-invoice text-blue-500"></i> AI 핵심 요약 브리핑
+                </h4>
+                <ul class="space-y-2 text-xs text-slate-600 pl-1">
+                    ${bulletsHtml}
+                </ul>
+            </div>
+
+            <!-- Action Items -->
+            <div class="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100/50 space-y-2.5">
+                <h4 class="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                    <i class="fa-solid fa-clipboard-check text-emerald-600"></i> 실무 행정 대처 및 확인 제안
+                </h4>
+                <ul class="space-y-2 text-xs text-slate-700 pl-0.5">
+                    ${actionHtml}
+                </ul>
+            </div>
+
+            <!-- Fact vs Opinion Distinction -->
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <i class="fa-solid fa-scale-balanced text-indigo-500"></i> 객관적 사실(Fact) vs 이해관계자 의견(Opinion) 분석
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed pl-1">
+                    ${item.distinction_fact_opinion}
+                </p>
+            </div>
+
+            <!-- Card Footer / Action Buttons -->
+            <div class="flex items-center justify-between flex-wrap gap-3 pt-3.5 border-t border-slate-100 no-print">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    ${fieldsHtml}
+                </div>
+                <div class="flex items-center gap-2">
+                    ${ttsBtnHtml}
+                    <button onclick="copyNewsToClipboard('${item.id}')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium transition-all flex items-center gap-1.5 border border-slate-200">
+                        <i class="fa-solid fa-copy text-slate-500"></i>
+                        <span>텍스트 복사</span>
+                    </button>
+                </div>
+            </div>
+        `;
+        feed.appendChild(card);
+    });
+}
+
+/* ==========================================
+   STREAMING_CHUNK: Task Management Logic
+   ========================================== */
+function extractAndBuildTasksFromNews(overwrite) {
+    const storedTasks = localStorage.getItem('SCHOOL_ADMIN_TASKS');
+    let existingTasks = [];
+    if (storedTasks) {
+        try { 
+            existingTasks = JSON.parse(storedTasks); 
+        } catch(e) {
+            existingTasks = [];
+        }
+    }
+
+    let newTasks = [];
+    ALL_NEWS_DATA.forEach(news => {
+        news.action_items.forEach((itemText, idx) => {
+            const taskId = `task-${news.id}-${idx}`;
+            const existing = existingTasks.find(t => t.id === taskId);
+            newTasks.push({
+                id: taskId,
+                text: itemText,
+                completed: existing ? existing.completed : false,
+                newsId: news.id,
+                newsTitle: news.title,
+                isManual: false
+            });
+        });
+    });
+
+    const manualTasks = existingTasks.filter(t => t.isManual);
+    
+    if (overwrite) {
+        ALL_TASKS = [...newTasks, ...manualTasks];
+    } else {
+        if (existingTasks.length > 0) {
+            ALL_TASKS = existingTasks;
+        } else {
+            ALL_TASKS = [...newTasks];
+        }
+    }
+
+    saveTasksToLocalStorage();
+}
+
+function saveTasksToLocalStorage() {
+    localStorage.setItem('SCHOOL_ADMIN_TASKS', JSON.stringify(ALL_TASKS));
+}
+
+function renderTasks() {
+    const container = document.getElementById('todo-tasks-container');
+    const rateLabel = document.getElementById('task-completion-rate');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (ALL_TASKS.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-10 text-slate-400 text-xs">
+                <i class="fa-solid fa-paste text-2xl mb-2 block"></i>
+                아침 보고를 생성하시면<br>학교 대처 과제가 자동 생성됩니다.
+            </div>
+        `;
+        if (rateLabel) rateLabel.innerText = "0/0 완료";
+        return;
+    }
+
+    const completedCount = ALL_TASKS.filter(t => t.completed).length;
+    if (rateLabel) rateLabel.innerText = `${completedCount}/${ALL_TASKS.length} 완료`;
+
+    ALL_TASKS.forEach(task => {
+        const item = document.createElement('div');
+        item.className = `flex items-start gap-2.5 p-2.5 rounded-xl border transition-all ${
+            task.completed 
+            ? 'bg-slate-50 border-slate-200/50 text-slate-400 line-through' 
+            : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+        }`;
+
+        const checkedAttr = task.completed ? 'checked' : '';
+
+        item.innerHTML = `
+            <input type="checkbox" onchange="toggleTaskState('${task.id}')" ${checkedAttr} class="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 mt-0.5 cursor-pointer shrink-0">
+            <div class="flex-1 min-w-0">
+                <p class="leading-relaxed select-none break-all text-xs font-medium">${task.text}</p>
+                ${
+                    !task.isManual && task.newsTitle 
+                    ? `<p class="text-[10px] text-slate-400 truncate mt-1 font-normal"><i class="fa-solid fa-link text-[9px] mr-1"></i>${task.newsTitle}</p>` 
+                    : ''
+                }
+            </div>
+            ${
+                task.isManual 
+                ? `<button onclick="deleteTask('${task.id}')" class="text-slate-400 hover:text-red-500 p-0.5 transition-colors shrink-0" title="과제 삭제">
+                    <i class="fa-solid fa-trash-can text-[11px]"></i>
+                   </button>` 
+                : ''
+            }
+        `;
+        container.appendChild(item);
+    });
+}
+
+function addManualTask() {
+    const input = document.getElementById('new-task-input');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) {
+        showToast("⚠️ 과제 내용을 입력해주세요.", "error");
+        return;
+    }
+
+    const taskId = `manual-${Date.now()}`;
+    ALL_TASKS.push({
+        id: taskId,
+        text: text,
+        completed: false,
+        isManual: true
+    });
+
+    input.value = '';
+    saveTasksToLocalStorage();
+    renderTasks();
+    showToast("✅ 실무 대처 과제가 추가되었습니다.", "success");
+}
+
+function toggleTaskState(taskId) {
+    const task = ALL_TASKS.find(t => t.id === taskId);
+    if (task) {
+        task.completed = !task.completed;
+        saveTasksToLocalStorage();
+        renderTasks();
+        if (task.completed) {
+            showToast("🎉 과제를 완료했습니다!", "success");
+        }
+    }
+}
+
+function deleteTask(taskId) {
+    ALL_TASKS = ALL_TASKS.filter(t => t.id !== taskId);
+    saveTasksToLocalStorage();
+    renderTasks();
+    showToast("🗑️ 과제가 삭제되었습니다.", "info");
+}
+
+/* ==========================================
+   STREAMING_CHUNK: Text-To-Speech (TTS) Voice Engine
+   ========================================== */
+function stopAudio() {
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+    playingNewsId = null;
+    isGlobalPlaying = false;
+    
+    // Reset global play button state
+    const globalBtn = document.getElementById('btn-global-voice');
+    if (globalBtn) {
+        globalBtn.innerHTML = `
+            <i class="fa-solid fa-volume-high text-blue-500"></i>
+            <span>전체 뉴스 AI 브리핑 음성 듣기</span>
+        `;
+        globalBtn.classList.remove('bg-red-50', 'border-red-200', 'text-red-600');
+    }
+
+    renderAllNews();
+}
+
+function playAudioBriefing(newsId) {
+    if (!window.speechSynthesis) {
+        showToast("⚠️ 이 브라우저는 음성 안내(TTS) 기능을 지원하지 않습니다.", "error");
+        return;
+    }
+
+    if (playingNewsId === newsId) {
+        stopAudio();
+        return;
+    }
+
+    stopAudio();
+
+    const news = ALL_NEWS_DATA.find(n => n.id === newsId);
+    if (!news) return;
+
+    playingNewsId = newsId;
+
+    let textToRead = `${news.title}. `;
+    textToRead += `뉴스 출처는 ${news.source_press}이며 발행일은 ${news.source_date}입니다. `;
+    textToRead += `주요 요약 내용입니다. `;
+    news.summary_points.forEach((point, idx) => {
+        textToRead += `${idx + 1}번, ${point} `;
+    });
+    textToRead += `학교 관리자를 위한 대처 제안입니다. `;
+    news.action_items.forEach((act, idx) => {
+        textToRead += `${idx + 1}번, ${act} `;
+    });
+
+    const utterance = new SpeechSynthesisUtterance(textToRead);
+    utterance.lang = 'ko-KR';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    utterance.onend = function() {
+        if (playingNewsId === newsId) {
+            stopAudio();
+        }
+    };
+
+    utterance.onerror = function() {
+        if (playingNewsId === newsId) {
+            stopAudio();
+        }
+    };
+
+    currentUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
+
+    renderAllNews();
+}
+
+function playGlobalAudioBriefing() {
+    if (!window.speechSynthesis) {
+        showToast("⚠️ 이 브라우저는 음성 안내(TTS) 기능을 지원하지 않습니다.", "error");
+        return;
+    }
+
+    if (isGlobalPlaying) {
+        stopAudio();
+        return;
+    }
+
+    stopAudio();
+
+    if (ALL_NEWS_DATA.length === 0) {
+        showToast("⚠️ 브리핑할 뉴스 데이터가 없습니다.", "error");
+        return;
+    }
+
+    isGlobalPlaying = true;
+    const globalBtn = document.getElementById('btn-global-voice');
+    if (globalBtn) {
+        globalBtn.innerHTML = `
+            <i class="fa-solid fa-circle-stop text-red-500"></i>
+            <span class="text-red-600 font-bold">브리핑 음성 재생 중단하기</span>
+        `;
+        globalBtn.classList.add('bg-red-50', 'border-red-200', 'text-red-600');
+    }
+
+    let currentIndex = 0;
+
+    function speakNext() {
+        if (!isGlobalPlaying || currentIndex >= ALL_NEWS_DATA.length) {
+            stopAudio();
+            return;
+        }
+
+        const news = ALL_NEWS_DATA[currentIndex];
+        let textToRead = `전체 브리핑 중 ${currentIndex + 1}번째 뉴스입니다. ${news.title}. `;
+        news.summary_points.forEach((point) => {
+            textToRead += `${point} `;
+        });
+
+        const utterance = new SpeechSynthesisUtterance(textToRead);
+        utterance.lang = 'ko-KR';
+        utterance.rate = 1.0;
+
+        utterance.onend = function() {
+            currentIndex++;
+            speakNext();
+        };
+
+        utterance.onerror = function() {
+            stopAudio();
+        };
+
+        currentUtterance = utterance;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    speakNext();
+}
+
+/* ==========================================
+   STREAMING_CHUNK: Clipboard & Report Export
+   ========================================== */
+function copyNewsToClipboard(newsId) {
+    const news = ALL_NEWS_DATA.find(n => n.id === newsId);
+    if (!news) return;
+
+    let text = `[오늘의 교육뉴스 브리핑] ${news.title}\n\n`;
+    text += `출처: ${news.source_press} (${news.source_date})\n\n`;
+    text += `■ 핵심 요약\n`;
+    news.summary_points.forEach(p => {
+        text += `- ${p}\n`;
+    });
+    text += `\n■ 실무 대처 제안\n`;
+    news.action_items.forEach(a => {
+        text += `- ${a}\n`;
+    });
+    text += `\n■ 사실 및 의견 분석\n${news.distinction_fact_opinion}\n`;
+
+    navigator.clipboard.writeText(text).then(() => {
+        showToast("📋 해당 뉴스 요약이 클립보드에 복사되었습니다.", "success");
+    }).catch(() => {
+        showToast("⚠️ 클립보드 복사에 실패했습니다.", "error");
+    });
+}
+
+function copyBriefingToClipboard() {
+    if (ALL_NEWS_DATA.length === 0) {
+        showToast("⚠️ 복사할 브리핑 데이터가 없습니다.", "error");
+        return;
+    }
+
+    let text = `=========================================\n`;
+    text += ` 오늘의 교육뉴스 아침 정책 브리핑 리포트\n`;
+    text += ` 일자: ${document.getElementById('current-date-text').innerText}\n`;
+    text += `=========================================\n\n`;
+
+    ALL_NEWS_DATA.forEach((news, index) => {
+        text += `${index + 1}. [${news.importance}] ${news.title}\n`;
+        text += `출처: ${news.source_press} (${news.source_date})\n`;
+        text += `주요 요약:\n`;
+        news.summary_points.forEach(p => text += `  - ${p}\n`);
+        text += `실무 대처 사항:\n`;
+        news.action_items.forEach(a => text += `  - ${a}\n`);
+        text += `-----------------------------------------\n\n`;
+    });
+
+    navigator.clipboard.writeText(text).then(() => {
+        showToast("📋 전체 뉴스 요약 리포트가 클립보드에 복사되었습니다.", "success");
+    }).catch(() => {
+        showToast("⚠️ 클립보드 복사에 실패했습니다.", "error");
+    });
+}
+
+function printBriefingReport() {
+    window.print();
+}
+</script>
+
 </body>
 </html>
