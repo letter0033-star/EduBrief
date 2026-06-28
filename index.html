@@ -401,7 +401,15 @@ async function fetchWithBackoff(url, options, retries = 2, delays = [1500, 3000]
                 await new Promise(res => setTimeout(res, delays[i]));
                 continue;
             }
-            throw new Error(`HTTP error! status: ${response.status}`);
+            // Extract descriptive error messages from Google API JSON response body
+            let errorMsg = `HTTP error! status: ${response.status}`;
+            try {
+                const errData = await response.json();
+                if (errData && errData.error && errData.error.message) {
+                    errorMsg = errData.error.message;
+                }
+            } catch (e) {}
+            throw new Error(errorMsg);
         } catch (error) {
             if (i === retries - 1) throw error;
             await new Promise(res => setTimeout(res, delays[i]));
@@ -414,7 +422,8 @@ async function fetchWithBackoff(url, options, retries = 2, delays = [1500, 3000]
    STREAMING_CHUNK: News Generation Engine (Real Gemini Grounding)
    ========================================== */
 async function generateMorningBriefing() {
-    const apiKey = localStorage.getItem('GEMINI_API_KEY') || "";
+    const inputKey = document.getElementById('api-key-sidebar-input') ? document.getElementById('api-key-sidebar-input').value.trim() : "";
+    const apiKey = inputKey || localStorage.getItem('GEMINI_API_KEY') || "";
     const loader = document.getElementById('generation-loader');
     const progressBar = document.getElementById('loader-progress-bar');
     const loaderText = document.getElementById('loader-step-text');
@@ -479,7 +488,7 @@ async function generateMorningBriefing() {
    STREAMING_CHUNK: Gemini 2.5 Live Grounding Engine
    ========================================== */
 async function fetchRealGeminiData(apiKey, updateProgressCallback) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     // Dynamically calculate current time and 3-day (72-hour) cutoff time (KST)
     const now = new Date();
