@@ -184,12 +184,12 @@
             </div>
 
             <!-- Special Priority Rule Info -->
-            <div class="mt-4 p-3.5 bg-indigo-50/50 rounded-xl border border-indigo-100/50 text-[11px] leading-relaxed text-slate-600">
-                <span class="font-bold text-indigo-800 flex items-center gap-1 mb-1">
-                    <i class="fa-solid fa-award text-xs"></i> 
+            <div class="mt-4 p-4 bg-indigo-50/70 rounded-xl border border-indigo-100 text-xs leading-relaxed text-slate-700">
+                <span class="font-bold text-indigo-900 flex items-center gap-1.5 mb-1.5 text-[13px]">
+                    <i class="fa-solid fa-award text-sm text-indigo-600"></i> 
                     최우선 자동 고정 정렬 규칙
                 </span>
-                교원 연금, 정년연장, 교원정원, 교육부 중대 정책, 법령 개정 뉴스 및 강원특별자치도교육청 관련 소식(강원일보, 강원도민일보 보도)은 우선순위로 판정되어 상단에 고정 배치됩니다.
+                강원특별자치도교육청 관련 소식(강원일보, 강원도민일보 보도), 교원 연금, 정년연장, 교원정원, 교육부 중대 정책, 법령 개정 뉴스 및 은 우선순위로 판정되어 상단에 고정 배치됩니다. 관련 기사에 다음의 키워드도 포함하고 있습니다. 시도교육청 정책, 교원 인사, 교원 정원, 공무원연금, 임금피크제, 교원 보수, 학교 행정, 학교 안전, 학교폭력, 생활지도, 교육과정, AI교육, 디지털교과서, 늘봄학교, 초등교육, 교육 관련 법률 개정, 국회 교육위원회, 교육부 보도자료, 인사혁신처 발표, 공무원 관련 제도 변화
             </div>
         </div>
 
@@ -301,8 +301,17 @@ function initApp() {
     const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
     document.getElementById('current-date-text').innerText = today.toLocaleDateString('ko-KR', options);
 
-    // Initial render using empty news array
-    ALL_NEWS_DATA = [];
+    // Initial render using cached briefing data if available
+    const cachedBriefing = localStorage.getItem('LAST_BRIEFING_DATA');
+    if (cachedBriefing) {
+        try {
+            ALL_NEWS_DATA = JSON.parse(cachedBriefing);
+        } catch (e) {
+            ALL_NEWS_DATA = [];
+        }
+    } else {
+        ALL_NEWS_DATA = [];
+    }
     renderAllNews();
     updateCounterBadges();
     
@@ -459,6 +468,7 @@ async function generateMorningBriefing() {
 
         if (freshData && freshData.length > 0) {
             ALL_NEWS_DATA = freshData;
+            localStorage.setItem('LAST_BRIEFING_DATA', JSON.stringify(ALL_NEWS_DATA));
             showToast("✨ 실시간 구글 서칭 뉴스 요약 정립이 성공적으로 마쳐졌습니다!", "success");
         } else {
             throw new Error("가져온 데이터의 포맷이 유효하지 않습니다.");
@@ -466,7 +476,7 @@ async function generateMorningBriefing() {
     } catch (err) {
         console.error("Gemini API Error:", err);
         showToast(`⚠️ 수집 실패 (${err.message || err}): 설정을 확인하고 다시 시도해 주세요.`, "error");
-        ALL_NEWS_DATA = [];
+        // Keep the previous cached data on failure so the user doesn't lose their last briefing
     } finally {
         progressBar.style.width = "100%";
         loaderText.innerText = "요약 정리 완료! 브리핑 파일을 게시합니다.";
@@ -503,12 +513,10 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     각 기사는 아래 규칙을 준수하여 요약 및 분석해야 한다:
     1. '교원 연금', '정년연장', '교원 정원', '교육부 정책', '법률 개정', '시행령 개정' 관련 뉴스와 '강원특별자치도교육청' 관련 내용 중 '강원일보' 및 '강원도민일보' 언론사 뉴스는 최우선 순위로 판정하고 'priority_reason'에 우선순위 사유(예: "강원교육청 중대 보도")를 한글로 기입하라. 그 외에는 빈 문자열로 하라.
     2. 'status'는 'CONFIRMED'(확정된 정책, 법안 통과 등) 또는 'UNDER_REVIEW'(검토 중, 논의 중, 심의 중 등)으로 구분하라.
-    3. 'distinction_fact_opinion'에 기사 내용 중 객관적 사실(Fact)과 이해당사자의 주장/우려/의견(Opinion)을 명확하게 구분하여 3~4줄로 분석한 한글 텍스트를 작성하라.
-    4. 'summary_points'에는 3~5줄의 한글 요약문을 담아라.
-    5. 'action_items'에는 학교 관리자가 사전에 준비하거나 확인해야 할 행정적, 운영적 대처 제안 사항을 2~3가지 한글로 작성하라.
-    6. 'importance'는 'HIGH'(학교 운영 직접 영향), 'MEDIUM'(향후 정책 변화 예상), 'LOW'(일반 교육뉴스)로 분류하라.
-    7. 'impact_rating'은 학교 영향도로 1부터 5 사이의 정수로 표기하라.
-    8. 실존하는 최신 기사 정보를 기반으로 하되, 출처 언론사('source_press'), 발행일('source_date', YYYY-MM-DD), 원문 링크('source_link')를 포함하라. 단, 'source_link'는 구글 검색 리다이렉트 주소(예: 'google.com/grounding-api-redirect...' 또는 'vertexaisearch.cloud.google.com...')가 아니라, 해당 기사의 실제 원본 언론사 기사 상세 URL(예: 'https://news.kbs.co.kr/news/pc/view/view.do?ncd=...' 또는 'https://www.yna.co.kr/view/AKR...')이어야만 한다.
+    3. 'summary_points'에는 해당 뉴스의 핵심 내용을 담은 요약문(불릿포인트 형식)을 정확히 5줄로 작성하라.
+    4. 'importance'는 'HIGH'(학교 운영 직접 영향), 'MEDIUM'(향후 정책 변화 예상), 'LOW'(일반 교육뉴스)로 분류하라.
+    5. 'impact_rating'은 학교 영향도로 1부터 5 사이의 정수로 표기하라.
+    6. 실존하는 최신 기사 정보를 기반으로 하되, 출처 언론사('source_press'), 발행일('source_date', YYYY-MM-DD), 원문 링크('source_link')를 포함하라. 단, 'source_link'는 구글 검색 리다이렉트 주소(예: 'google.com/grounding-api-redirect...' 또는 'vertexaisearch.cloud.google.com...')가 아니라, 해당 기사의 실제 원본 언론사 기사 상세 URL(예: 'https://news.kbs.co.kr/news/pc/view/view.do?ncd=...' 또는 'https://www.yna.co.kr/view/AKR...')이어야만 한다.
 
     응답은 반드시 아래의 JSON 스키마를 따르는 JSON 데이터 형태로만 반환해야 하며, 마크다운 코드 블록( \`\`\`json ... \`\`\` ) 안에 넣어라. 다른 인사말이나 설명 텍스트 없이 JSON만 반환하라.
 
@@ -520,14 +528,12 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
           "importance": "문자열 ('HIGH', 'MEDIUM', 'LOW' 중 하나)",
           "priority_reason": "문자열 (최우선 순위 사유 또는 빈 문자열)",
           "status": "문자열 ('CONFIRMED', 'UNDER_REVIEW' 중 하나)",
-          "summary_points": ["문자열 요약1", "문자열 요약2", ...],
+          "summary_points": ["문자열 요약1", "문자열 요약2", "문자열 요약3", "문자열 요약4", "문자열 요약5"],
           "impact_rating": 정수 (1~5),
           "related_fields": ["분야1", "분야2", ...],
-          "action_items": ["대처1", "대처2", ...],
           "source_press": "문자열 (언론사명)",
           "source_date": "문자열 (YYYY-MM-DD)",
-          "source_link": "문자열 (기사 원본 URL)",
-          "distinction_fact_opinion": "문자열 (사실과 의견 분석)"
+          "source_link": "문자열 (기사 원본 URL)"
         }
       ]
     }`;
@@ -783,14 +789,42 @@ function renderAllNews() {
     // Special Priority Sorting Rule:
     filteredNews.sort((a, b) => {
         const getPriorityScore = (item) => {
-            if (item.priority_reason) return 1;
             const titleText = (item.title || "").toLowerCase();
             const pressText = (item.source_press || "").toLowerCase();
+            const summaryText = (item.summary_points || []).join(" ").toLowerCase();
+
+            // 1. Primary priorities (Score 2)
+            if (item.priority_reason) return 2;
+            
             const hasGangwonOffice = titleText.includes("강원특별자치도교육청") || titleText.includes("강원교육청");
             const isGangwonPress = pressText.includes("강원일보") || pressText.includes("강원도민일보");
-            if (hasGangwonOffice && isGangwonPress) {
+            if (hasGangwonOffice && isGangwonPress) return 2;
+
+            const primaryKeywords = [
+                "교원 연금", "교원연금", "공무원연금", "정년연장", "정년 연장",
+                "교원 정원", "교원정원", "교육부 정책", "교육부 중대 정책",
+                "법령 개정", "법률 개정", "법령개정", "법률개정", "시행령 개정"
+            ];
+            if (primaryKeywords.some(kw => titleText.includes(kw.toLowerCase()) || summaryText.includes(kw.toLowerCase()))) {
+                return 2;
+            }
+
+            // 2. Secondary priorities (Score 1)
+            const secondaryKeywords = [
+                "시도교육청 정책", "시도교육청정책", "교원 인사", "교원인사",
+                "임금피크제", "임금 피크제", "교원 보수", "교원보수",
+                "학교 행정", "학교행정", "학교 안전", "학교안전",
+                "학교폭력", "학교 폭력", "생활지도", "생활 지도",
+                "교육과정", "교육 과정", "ai교육", "ai 교육",
+                "디지털교과서", "디지털 교과서", "늘봄학교", "늘봄 학교",
+                "초등교육", "초등 교육", "교육 관련 법률 개정",
+                "국회 교육위원회", "교육부 보도자료", "인사혁신처 발표",
+                "공무원 관련 제도 변화"
+            ];
+            if (secondaryKeywords.some(kw => titleText.includes(kw.toLowerCase()) || summaryText.includes(kw.toLowerCase()))) {
                 return 1;
             }
+
             return 0;
         };
 
@@ -841,13 +875,6 @@ function renderAllNews() {
             <li class="flex items-start gap-2 text-slate-700 leading-relaxed">
                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 mt-2 shrink-0"></span>
                 <span class="flex-1">${point}</span>
-            </li>
-        `).join('');
-
-        const actionHtml = item.action_items.map(act => `
-            <li class="flex items-start gap-2.5 text-xs text-slate-800 font-medium">
-                <i class="fa-solid fa-circle-check text-emerald-500 mt-0.5 shrink-0"></i>
-                <span class="flex-1">${act}</span>
             </li>
         `).join('');
 
@@ -911,26 +938,6 @@ function renderAllNews() {
                 <ul class="space-y-2 text-xs text-slate-600 pl-1">
                     ${bulletsHtml}
                 </ul>
-            </div>
-
-            <!-- Action Items -->
-            <div class="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100/50 space-y-2.5">
-                <h4 class="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                    <i class="fa-solid fa-clipboard-check text-emerald-600"></i> 실무 행정 대처 및 확인 제안
-                </h4>
-                <ul class="space-y-2 text-xs text-slate-700 pl-0.5">
-                    ${actionHtml}
-                </ul>
-            </div>
-
-            <!-- Fact vs Opinion Distinction -->
-            <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
-                <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <i class="fa-solid fa-scale-balanced text-indigo-500"></i> 객관적 사실(Fact) vs 이해관계자 의견(Opinion) 분석
-                </h4>
-                <p class="text-xs text-slate-600 leading-relaxed pl-1">
-                    ${item.distinction_fact_opinion}
-                </p>
             </div>
 
             <!-- Card Footer / Action Buttons -->
@@ -1096,15 +1103,10 @@ function copyNewsToClipboard(newsId) {
 
     let text = `[오늘의 교육뉴스 브리핑] ${news.title}\n\n`;
     text += `출처: ${news.source_press} (${news.source_date})\n\n`;
-    text += `■ 핵심 요약\n`;
+    text += `■ AI 핵심 요약 브리핑\n`;
     news.summary_points.forEach(p => {
         text += `- ${p}\n`;
     });
-    text += `\n■ 실무 대처 제안\n`;
-    news.action_items.forEach(a => {
-        text += `- ${a}\n`;
-    });
-    text += `\n■ 사실 및 의견 분석\n${news.distinction_fact_opinion}\n`;
 
     navigator.clipboard.writeText(text).then(() => {
         showToast("📋 해당 뉴스 요약이 클립보드에 복사되었습니다.", "success");
@@ -1127,10 +1129,8 @@ function copyBriefingToClipboard() {
     ALL_NEWS_DATA.forEach((news, index) => {
         text += `${index + 1}. [${news.importance}] ${news.title}\n`;
         text += `출처: ${news.source_press} (${news.source_date})\n`;
-        text += `주요 요약:\n`;
+        text += `AI 핵심 요약 브리핑:\n`;
         news.summary_points.forEach(p => text += `  - ${p}\n`);
-        text += `실무 대처 사항:\n`;
-        news.action_items.forEach(a => text += `  - ${a}\n`);
         text += `-----------------------------------------\n\n`;
     });
 
