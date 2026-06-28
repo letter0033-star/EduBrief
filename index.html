@@ -91,7 +91,7 @@
                 아침 뉴스 브리핑 빌더
             </h2>
             <p class="text-xs text-slate-500 mb-4 leading-relaxed">
-                제공해주신 Gemini API와 <strong>실시간 Google Search 검색망</strong>을 교차 연동하여 대학입시 광고 및 마케팅성 찌라시 기사를 자동 정화 수집합니다.
+                제공해주신 Gemini API와 <strong>실시간 Google Search 검색망</strong>을 교차 연동하여 대학입시 광고 및 마케팅성 전단지(정보지) 기사를 자동 정화 수집합니다.
             </p>
             
             <!-- Generate Button -->
@@ -158,7 +158,7 @@
                     <i class="fa-solid fa-award text-xs"></i> 
                     최우선 자동 고정 정렬 규칙
                 </span>
-                교원 연금, 정년연장, 교원정원, 교육부 중대 정책, 법령 및 시행령 개정 뉴스는 우선순위로 판정되어 상단에 고정 배치됩니다.
+                교원 연금, 정년연장, 교원정원, 교육부 중대 정책, 법령 개정 뉴스 및 강원특별자치도교육청 관련 소식(강원일보, 강원도민일보 보도)은 우선순위로 판정되어 상단에 고정 배치됩니다.
             </div>
         </div>
 
@@ -212,7 +212,7 @@
                     <i class="fa-solid fa-file-invoice text-blue-600"></i>
                     <span>학교 행정 및 중대 교육 뉴스 요약 리포트</span>
                 </h2>
-                <p class="text-xs text-slate-500">실시간 Gemini 검색 기반으로 조회수 전용 찌라시를 제거한 맞춤형 프리미엄 리포트입니다.</p>
+                <p class="text-xs text-slate-500">실시간 Gemini 검색 기반으로 조회수 전용 전단지(정보지)를 제거한 맞춤형 프리미엄 리포트입니다.</p>
             </div>
             
             <!-- Export and copy tools -->
@@ -612,7 +612,7 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     const promptText = `오늘 날짜는 2026년 6월 28일이다. 대한민국 교육부 정책, 시도교육청 정책, 교원 인사, 교원 정원, 교원 연금, 공무원연금, 정년연장, 임금피크제, 교원 보수, 학교 행정, 학교 안전, 학교폭력, 생활지도, 교육과정, AI교육, 디지털교과서, 늘봄학교, 초등교육, 교육 관련 법률 개정, 국회 교육위원회, 교육부 보도자료, 인사혁신처 발표, 공무원 관련 제도 변화와 관련된 2026년 6월 최신 뉴스를 실시간 웹 검색(Google Search)으로 수집하라.
     단, 학원 홍보, 대학 입시 광고, 단순 사건사고, 중복 기사, 조회수 목적의 자극적 기사는 철저히 제외한다.
     각 기사는 아래 규칙을 준수하여 요약 및 분석해야 한다:
-    1. '교원 연금', '정년연장', '교원 정원', '교육부 정책', '법률 개정', '시행령 개정' 관련 뉴스는 최우선 순위로 판정하고 'priority_reason'에 우선순위 사유를 한글로 기입하라. 그 외에는 빈 문자열로 하라.
+    1. '교원 연금', '정년연장', '교원 정원', '교육부 정책', '법률 개정', '시행령 개정' 관련 뉴스와 '강원특별자치도교육청' 관련 내용 중 '강원일보' 및 '강원도민일보' 언론사 뉴스는 최우선 순위로 판정하고 'priority_reason'에 우선순위 사유(예: "강원교육청 중대 보도")를 한글로 기입하라. 그 외에는 빈 문자열로 하라.
     2. 'status'는 'CONFIRMED'(확정된 정책, 법안 통과 등) 또는 'UNDER_REVIEW'(검토 중, 논의 중, 심의 중 등)으로 구분하라.
     3. 'distinction_fact_opinion'에 기사 내용 중 객관적 사실(Fact)과 이해당사자의 주장/우려/의견(Opinion)을 명확하게 구분하여 3~4줄로 분석한 한글 텍스트를 작성하라.
     4. 'summary_points'에는 3~5줄의 한글 요약문을 담아라.
@@ -791,10 +791,24 @@ function renderAllNews() {
     });
 
     // Special Priority Sorting Rule:
-    // 교원 연금, 정년연장, 교원정원, 교육부 정책, 법률 개정, 시행령 개정은 최우선 배치
+    // 교원 연금, 정년연장, 교원정원, 교육부 정책, 법령 개정 뉴스 및 강원특별자치도교육청(강원일보/강원도민일보)은 최우선 배치
     filteredNews.sort((a, b) => {
-        const isPriorityA = a.priority_reason ? 1 : 0;
-        const isPriorityB = b.priority_reason ? 1 : 0;
+        const getPriorityScore = (item) => {
+            if (item.priority_reason) return 1;
+            
+            // Local fallback priority logic
+            const titleText = (item.title || "").toLowerCase();
+            const pressText = (item.source_press || "").toLowerCase();
+            const hasGangwonOffice = titleText.includes("강원특별자치도교육청") || titleText.includes("강원교육청");
+            const isGangwonPress = pressText.includes("강원일보") || pressText.includes("강원도민일보");
+            if (hasGangwonOffice && isGangwonPress) {
+                return 1;
+            }
+            return 0;
+        };
+
+        const isPriorityA = getPriorityScore(a);
+        const isPriorityB = getPriorityScore(b);
         
         // If one is prioritized, show first
         if (isPriorityA !== isPriorityB) {
