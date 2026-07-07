@@ -640,7 +640,20 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                                     item.source_link = matchedUrl;
                                 }
                             });
-                            return sanitizedNews;
+                            
+                            // 7일 내 날짜 강제 필터링
+                            const filteredNews = sanitizedNews.filter(item => {
+                                try {
+                                    const itemDate = new Date(item.source_date);
+                                    if (isNaN(itemDate.getTime())) return true;
+                                    const diffTime = now.getTime() - itemDate.getTime();
+                                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                                    return diffDays <= 7.9; // 7.9일 버퍼 포함
+                                } catch (e) {
+                                    return true;
+                                }
+                            });
+                            return filteredNews.length > 0 ? filteredNews : sanitizedNews;
                         }
                     }
                     throw new Error(`검색 응답에서 뉴스 JSON을 파싱하지 못함 (finishReason: ${finishReason || '알수없음'}, 응답 일부: ${jsonText.slice(0, 120)})`);
@@ -723,7 +736,19 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                     if (newsArray && newsArray.length > 0) {
                         const sanitizedNews = sanitizeNewsItems(newsArray);
                         if (sanitizedNews.length > 0) {
-                            return sanitizedNews;
+                            // 7일 내 날짜 강제 필터링
+                            const filteredNews = sanitizedNews.filter(item => {
+                                try {
+                                    const itemDate = new Date(item.source_date);
+                                    if (isNaN(itemDate.getTime())) return true;
+                                    const diffTime = now.getTime() - itemDate.getTime();
+                                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                                    return diffDays <= 7.9; // 7.9일 버퍼 포함
+                                } catch (e) {
+                                    return true;
+                                }
+                            });
+                            return filteredNews.length > 0 ? filteredNews : sanitizedNews;
                         }
                     }
                     throw new Error(`대체 응답에서 뉴스 JSON을 파싱하지 못함 (finishReason: ${fallbackFinishReason || '알수없음'}, 응답 일부: ${jsonText.slice(0, 120)})`);
