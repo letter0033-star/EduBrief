@@ -584,7 +584,11 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                 if (result.error) {
                     throw new Error(result.error.message || "API error");
                 }
+                if (result.promptFeedback?.blockReason) {
+                    throw new Error(`요청이 안전 필터에 의해 차단됨 (${result.promptFeedback.blockReason})`);
+                }
 
+                const finishReason = result.candidates?.[0]?.finishReason;
                 const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (jsonText) {
                     const parsed = extractJsonFromString(jsonText);
@@ -600,7 +604,9 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                         });
                         return parsed.news;
                     }
+                    throw new Error(`검색 응답에서 뉴스 JSON을 파싱하지 못함 (finishReason: ${finishReason || '알수없음'}, 응답 일부: ${jsonText.slice(0, 120)})`);
                 }
+                throw new Error(`검색 응답에 텍스트 콘텐츠가 없음 (finishReason: ${finishReason || '알수없음'})`);
             } catch (searchError) {
                 const errorStr = String(searchError);
                 // If it is a model not found / API version compatibility issue, skip to next combination immediately
@@ -631,14 +637,20 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                 if (result.error) {
                     throw new Error(result.error.message || "Fallback API error");
                 }
+                if (result.promptFeedback?.blockReason) {
+                    throw new Error(`요청이 안전 필터에 의해 차단됨 (${result.promptFeedback.blockReason})`);
+                }
 
+                const fallbackFinishReason = result.candidates?.[0]?.finishReason;
                 const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (jsonText) {
                     const parsed = extractJsonFromString(jsonText);
                     if (parsed && parsed.news && parsed.news.length > 0) {
                         return parsed.news;
                     }
+                    throw new Error(`대체 응답에서 뉴스 JSON을 파싱하지 못함 (finishReason: ${fallbackFinishReason || '알수없음'}, 응답 일부: ${jsonText.slice(0, 120)})`);
                 }
+                throw new Error(`대체 응답에 텍스트 콘텐츠가 없음 (finishReason: ${fallbackFinishReason || '알수없음'})`);
             }
         } catch (modelErr) {
             console.warn(`Attempt with ${model} (${version}) failed:`, modelErr);
