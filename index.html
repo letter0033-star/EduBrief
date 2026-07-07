@@ -4,6 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>오늘의 교육뉴스 보고드립니다. - 아침 정책 브리핑</title>
+    <!-- Suppress Tailwind CDN production warning (must run BEFORE the Tailwind script below) -->
+    <script>
+        (function() {
+            const originalWarn = console.warn;
+            console.warn = function(...args) {
+                if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) {
+                    return;
+                }
+                originalWarn.apply(console, args);
+            };
+        })();
+    </script>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts (Inter & Noto Sans KR) -->
@@ -266,17 +278,6 @@
 <!-- Settings Modal Removed as requested -->
 
 <script>
-// Suppress Tailwind CDN production warning in console
-(function() {
-    const originalWarn = console.warn;
-    console.warn = function(...args) {
-        if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) {
-            return;
-        }
-        originalWarn.apply(console, args);
-    };
-})();
-
 // =======================================================================================
 // [CORE CONFIG] Fallback / Default API key removed
 // =======================================================================================
@@ -528,6 +529,7 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
         { version: "v1beta", model: "gemini-2.0-flash" }
     ];
     let lastError = null;
+    const attemptErrors = [];
 
     const now = new Date();
     const formattedNow = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
@@ -556,7 +558,7 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     for (const attempt of attempts) {
         const { version, model } = attempt;
         try {
-            updateProgressCallback(30 + attempts.indexOf(attempt) * 20, `${model} (${version}) 모델로 수집 시도 중...`);
+            updateProgressCallback(30 + attempts.indexOf(attempt) * 25, `${model} (${version}) 모델로 수집 시도 중...`);
             const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent`;
 
             // Try first with Google Search Grounding Tool
@@ -619,23 +621,31 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                 if (result.error) {
                     throw new Error(result.error.message || "API error");
                 }
+                if (result.promptFeedback?.blockReason) {
+                    throw new Error(`요청이 안전 필터에 의해 차단됨 (${result.promptFeedback.blockReason})`);
+                }
 
+                const finishReason = result.candidates?.[0]?.finishReason;
                 const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (jsonText) {
                     const parsed = extractJsonFromString(jsonText);
-                    if (parsed && parsed.news && parsed.news.length > 0) {
-                        const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-                        parsed.news.forEach(item => {
-                            const matchedUrl = findBestMatchingUrl(item.title, item.source_press, groundingChunks);
-                            if (matchedUrl) {
-                                item.source_link = matchedUrl;
-                            } else {
-                                item.source_link = `https://www.google.com/search?q=${encodeURIComponent(item.title + ' ' + (item.source_press || ''))}`;
-                            }
-                        });
-                        return parsed.news;
+                    const newsArray = extractNewsArray(parsed);
+                    if (newsArray && newsArray.length > 0) {
+                        const sanitizedNews = sanitizeNewsItems(newsArray);
+                        if (sanitizedNews.length > 0) {
+                            const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+                            sanitizedNews.forEach(item => {
+                                const matchedUrl = findBestMatchingUrl(item.title, item.source_press, groundingChunks);
+                                if (matchedUrl) {
+                                    item.source_link = matchedUrl;
+                                }
+                            });
+                            return sanitizedNews;
+                        }
                     }
+                    throw new Error(`검색 응답에서 뉴스 JSON을 파싱하지 못함 (finishReason: ${finishReason || '알수없음'}, 응답 일부: ${jsonText.slice(0, 120)})`);
                 }
+                throw new Error(`검색 응답에 텍스트 콘텐츠가 없음 (finishReason: ${finishReason || '알수없음'})`);
             } catch (searchError) {
                 const errorStr = String(searchError);
                 // If it is a model not found / API version compatibility issue, skip to next combination immediately
@@ -651,7 +661,41 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                 const combinedFallbackPrompt = `${systemInstructionText}\n\n${fallbackPrompt}`;
                 const payloadWithoutSearch = {
                     contents: [{ parts: [{ text: combinedFallbackPrompt }] }],
-                    generationConfig: generationConfig
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                news: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            id: { type: "STRING" },
+                                            title: { type: "STRING" },
+                                            importance: { type: "STRING", enum: ["HIGH", "MEDIUM", "LOW"] },
+                                            priority_reason: { type: "STRING" },
+                                            status: { type: "STRING", enum: ["CONFIRMED", "UNDER_REVIEW"] },
+                                            summary_points: {
+                                                type: "ARRAY",
+                                                items: { type: "STRING" }
+                                            },
+                                            impact_rating: { type: "INTEGER" },
+                                            related_fields: {
+                                                type: "ARRAY",
+                                                items: { type: "STRING" }
+                                            },
+                                            source_press: { type: "STRING" },
+                                            source_date: { type: "STRING" },
+                                            source_link: { type: "STRING" }
+                                        },
+                                        required: ["id", "title", "importance", "priority_reason", "status", "summary_points", "impact_rating", "related_fields", "source_press", "source_date", "source_link"]
+                                    }
+                                }
+                            },
+                            required: ["news"]
+                        }
+                    }
                 };
 
                 const response = await fetchWithBackoff(url, {
@@ -667,19 +711,33 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                 if (result.error) {
                     throw new Error(result.error.message || "Fallback API error");
                 }
+                if (result.promptFeedback?.blockReason) {
+                    throw new Error(`요청이 안전 필터에 의해 차단됨 (${result.promptFeedback.blockReason})`);
+                }
 
+                const fallbackFinishReason = result.candidates?.[0]?.finishReason;
                 const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (jsonText) {
                     const parsed = extractJsonFromString(jsonText);
-                    if (parsed && parsed.news && parsed.news.length > 0) {
-                        return parsed.news;
+                    const newsArray = extractNewsArray(parsed);
+                    if (newsArray && newsArray.length > 0) {
+                        const sanitizedNews = sanitizeNewsItems(newsArray);
+                        if (sanitizedNews.length > 0) {
+                            return sanitizedNews;
+                        }
                     }
+                    throw new Error(`대체 응답에서 뉴스 JSON을 파싱하지 못함 (finishReason: ${fallbackFinishReason || '알수없음'}, 응답 일부: ${jsonText.slice(0, 120)})`);
                 }
+                throw new Error(`대체 응답에 텍스트 콘텐츠가 없음 (finishReason: ${fallbackFinishReason || '알수없음'})`);
             }
         } catch (modelErr) {
             console.warn(`Attempt with ${model} (${version}) failed:`, modelErr);
             lastError = modelErr;
+            attemptErrors.push(`${model}: ${modelErr.message || modelErr}`);
         }
+    }
+    if (attemptErrors.length > 0) {
+        throw new Error(attemptErrors.join(' / '));
     }
     throw lastError || new Error("뉴스 정보 수집에 실패했습니다. API 키 충전 여부 및 네트워크 상태를 확인하세요.");
 }
@@ -917,6 +975,90 @@ function extractJsonFromString(str) {
     } catch (e) {}
 
     return null;
+}
+
+function extractNewsArray(parsed) {
+    if (!parsed) return null;
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed.news && Array.isArray(parsed.news)) return parsed.news;
+    
+    const commonKeys = ["news_list", "news_items", "articles", "education_news", "news_reports", "reports"];
+    for (const key of commonKeys) {
+        if (parsed[key] && Array.isArray(parsed[key])) {
+            return parsed[key];
+        }
+    }
+    for (const key in parsed) {
+        if (Array.isArray(parsed[key])) {
+            return parsed[key];
+        }
+    }
+    return null;
+}
+
+function sanitizeNewsItems(newsArray) {
+    if (!Array.isArray(newsArray)) return [];
+    return newsArray.map((item, index) => {
+        const id = item.id || `edu-news-${Date.now()}-${index}`;
+        const title = item.title || item.subject || "교육 뉴스";
+        
+        let importance = (item.importance || "LOW").toUpperCase();
+        if (importance !== "HIGH" && importance !== "MEDIUM" && importance !== "LOW") {
+            importance = "LOW";
+        }
+        
+        const priority_reason = item.priority_reason || "";
+        
+        let status = (item.status || "UNDER_REVIEW").toUpperCase();
+        if (status !== "CONFIRMED" && status !== "UNDER_REVIEW") {
+            status = "UNDER_REVIEW";
+        }
+        
+        let summary_points = [];
+        if (Array.isArray(item.summary_points)) {
+            summary_points = item.summary_points;
+        } else if (Array.isArray(item.summary)) {
+            summary_points = item.summary;
+        } else if (typeof item.summary === 'string') {
+            summary_points = [item.summary];
+        } else if (item.points && Array.isArray(item.points)) {
+            summary_points = item.points;
+        } else {
+            summary_points = ["뉴스의 주요 내용을 불러올 수 없습니다."];
+        }
+        while (summary_points.length < 5) {
+            summary_points.push("추가적인 세부 보도 사항을 확인 중입니다.");
+        }
+        if (summary_points.length > 5) {
+            summary_points = summary_points.slice(0, 5);
+        }
+        
+        let impact_rating = parseInt(item.impact_rating || item.rating || 3, 10);
+        if (isNaN(impact_rating) || impact_rating < 1 || impact_rating > 5) {
+            impact_rating = 3;
+        }
+        
+        let related_fields = [];
+        if (Array.isArray(item.related_fields)) {
+            related_fields = item.related_fields;
+        } else if (Array.isArray(item.tags)) {
+            related_fields = item.tags;
+        } else if (typeof item.related_fields === 'string') {
+            related_fields = [item.related_fields];
+        } else {
+            related_fields = ["교육"];
+        }
+        
+        const source_press = item.source_press || item.press || "교육 언론사";
+        const source_date = item.source_date || item.date || new Date().toISOString().split('T')[0];
+        const source_link = item.source_link || item.link || `https://www.google.com/search?q=${encodeURIComponent(title)}`;
+        
+        return {
+            id, title, importance, priority_reason, status,
+            summary_points, impact_rating, related_fields,
+            source_press, source_date, source_link
+        };
+    });
 }
 
 /* ==========================================
