@@ -150,7 +150,7 @@
                 <div class="w-full bg-slate-200 h-1.5 rounded-full mt-3 overflow-hidden">
                     <div id="loader-progress-bar" class="bg-blue-600 h-1.5 rounded-full transition-all duration-300" style="width: 20%"></div>
                 </div>
-                <span class="text-[10px] text-slate-400 mt-1 block">실시간 라이브 웹 검색으로 약 10~15초가 소요됩니다.</span>
+                <span class="text-[10px] text-slate-400 mt-1 block">실시간 웹 검색 및 뉴스 요약 합성으로 인해 <strong>약 1~2분 정도 소요</strong>될 수 있습니다. 창을 닫지 마시고 잠시만 기다려 주세요.</span>
             </div>
         </div>
 
@@ -563,9 +563,9 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
             try {
                 updateProgressCallback(45, `${model} (${version}) 실시간 구글 검색망 연동 중...`);
                 
+                const combinedPrompt = `${systemInstructionText}\n\n${promptText}`;
                 const payloadWithSearch = {
-                    contents: [{ parts: [{ text: promptText }] }],
-                    systemInstruction: { parts: [{ text: systemInstructionText }] },
+                    contents: [{ parts: [{ text: combinedPrompt }] }],
                     tools: [{ "googleSearch": {} }]
                 };
 
@@ -608,9 +608,9 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                 
                 const fallbackPrompt = promptText + "\n\n[중요 지시사항: 현재 실시간 웹 검색 도구 로드 한도 초과 또는 일시적 네트워크 장애 상태이므로, 너의 대한민국 교육 정책 지식과 트렌드를 종합하여 2026년 6월 28일 기준의 최신 핵심 교육부 정책 속보 및 학교 행정 공문 뉴스를 15개 작성해 다오. 관련성이 다소 낮거나 간접적인 교육 뉴스이더라도 다양하게 참고할 수 있도록 15개의 리포트를 가득 채워 구성하고, 출처 언론사 및 날짜(최근 7일 이내에 해당하는 2026-06-21 ~ 2026-06-28 사이)도 그럴듯하게 설정하고, 'source_link'는 구글 기사 검색 결과 링크(예: https://www.google.com/search?q=...)로 채워다오.]";
                 
+                const combinedFallbackPrompt = `${systemInstructionText}\n\n${fallbackPrompt}`;
                 const payloadWithoutSearch = {
-                    contents: [{ parts: [{ text: fallbackPrompt }] }],
-                    systemInstruction: { parts: [{ text: systemInstructionText }] }
+                    contents: [{ parts: [{ text: combinedFallbackPrompt }] }]
                 };
 
                 const response = await fetchWithBackoff(url, {
