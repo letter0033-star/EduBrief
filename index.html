@@ -88,6 +88,10 @@
             <p class="text-[11px] text-slate-500 mb-3 leading-relaxed">
                 실시간 뉴스 분석을 위해 Google AI Studio에서 발급받은 API 키를 입력해 주세요.
             </p>
+            <div class="p-2.5 bg-amber-50 border border-amber-200 rounded-xl mb-3 text-[10px] text-amber-800 leading-relaxed">
+                <i class="fa-solid fa-circle-exclamation text-amber-600 mr-1"></i>
+                API 키 발급은 무료이나, 구글 실시간 검색(Search Grounding) 및 요약 토큰을 원활하게 사용하려면 <strong>Google AI Studio에서 결제 카드(Billing) 등록 및 최소 금액 충전이 필요</strong>합니다.
+            </div>
             <div class="space-y-2">
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
@@ -184,12 +188,18 @@
             </div>
 
             <!-- Special Priority Rule Info -->
-            <div class="mt-4 p-4 bg-indigo-50/70 rounded-xl border border-indigo-100 text-xs leading-relaxed text-slate-700">
-                <span class="font-bold text-indigo-900 flex items-center gap-1.5 mb-1.5 text-[13px]">
+            <div class="mt-4 p-4 bg-indigo-50/70 rounded-xl border border-indigo-100 text-xs leading-relaxed text-slate-700 space-y-2">
+                <span class="font-bold text-indigo-900 flex items-center gap-1.5 mb-1 text-[13px]">
                     <i class="fa-solid fa-award text-sm text-indigo-600"></i> 
-                    최우선 자동 고정 정렬 규칙
+                    뉴스 수집 및 정렬 특별 규칙
                 </span>
-                강원특별자치도교육청 관련 소식(강원일보, 강원도민일보 보도), 교원 연금, 정년연장, 교원정원, 교육부 중대 정책, 법령 개정 뉴스 및 은 우선순위로 판정되어 상단에 고정 배치됩니다. 관련 기사에 다음의 키워드도 포함하고 있습니다. 시도교육청 정책, 교원 인사, 교원 정원, 공무원연금, 임금피크제, 교원 보수, 학교 행정, 학교 안전, 학교폭력, 생활지도, 교육과정, AI교육, 디지털교과서, 늘봄학교, 초등교육, 교육 관련 법률 개정, 국회 교육위원회, 교육부 보도자료, 인사혁신처 발표, 공무원 관련 제도 변화
+                <ul class="space-y-1.5 list-decimal pl-4 text-slate-600">
+                    <li><strong class="text-indigo-900">1순위 배치:</strong> 강원특별자치도교육청 및 산하 지역교육지원청 관련 뉴스를 최상단에 고정합니다.</li>
+                    <li><strong class="text-indigo-900">2순위 배치:</strong> 교원 연금, 정년연장, 교원 정원, 교육부 정책, 법률/시행령 개정 뉴스를 그 아래에 배치합니다.</li>
+                    <li><strong>기사 통합:</strong> 중복되거나 동일한 내용의 뉴스는 하나로 통합하여 요약합니다.</li>
+                    <li><strong>의견 배제:</strong> 기사의 객관적 정보(내용)와 기자의 주관적 평가(의견)를 명확히 구분합니다.</li>
+                    <li><strong>정책 상태 구분:</strong> 확정된 정책과 검토 중인 정책을 아이콘 및 라벨로 분류하여 표시합니다.</li>
+                </ul>
             </div>
         </div>
 
@@ -509,14 +519,19 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     const promptText = `현재 시간은 대한민국 표준시(KST)로 ${formattedNow}이다. 대한민국 교육부 정책, 시도교육청 정책, 교원 인사, 교원 정원, 교원 연금, 공무원연금, 정년연장, 임금피크제, 교원 보수, 학교 행정, 학교 안전, 학교폭력, 생활지도, 교육과정, AI교육, 디지털교과서, 늘봄학교, 초등교육, 교육 관련 법률 개정, 국회 교육위원회, 교육부 보도자료, 인사혁신처 발표, 공무원 관련 제도 변화와 관련된 최신 뉴스를 실시간 웹 검색(Google Search)으로 수집하라. 관련성이 다소 낮거나 간접적인 연관성이 있는 교육 뉴스이더라도 다양하고 풍부한 보고서 작성을 위해 반드시 15개 내외(최소 12개, 최대 18개)의 많은 뉴스를 수집하여 작성하라.
     단, 검색 범위는 현재 시간 기준 최근 7일(일주일) 이내(즉, ${formattedCutoff} 이후)에 작성되거나 발행된 뉴스 기사로 엄격히 제한한다. 7일보다 오래된 기사는 수집 목록에서 무조건 제외하라.
     각 기사의 'source_date' 필드(발행일)는 반드시 이 범위 안의 실제 날짜(YYYY-MM-DD)로 작성되어야 한다.
-    학원 홍보, 대학 입시 광고, 단순 사건사고, 중복 기사, 조회수 목적의 자극적 기사는 철저히 제외한다.
-    각 기사는 아래 규칙을 준수하여 요약 및 분석해야 한다:
-    1. '교원 연금', '정년연장', '교원 정원', '교육부 정책', '법률 개정', '시행령 개정' 관련 뉴스와 '강원특별자치도교육청' 관련 내용 중 '강원일보' 및 '강원도민일보' 언론사 뉴스는 최우선 순위로 판정하고 'priority_reason'에 우선순위 사유(예: "강원교육청 중대 보도")를 한글로 기입하라. 그 외에는 빈 문자열로 하라.
-    2. 'status'는 'CONFIRMED'(확정된 정책, 법안 통과 등) 또는 'UNDER_REVIEW'(검토 중, 논의 중, 심의 중 등)으로 구분하라.
-    3. 'summary_points'에는 해당 뉴스의 핵심 내용을 담은 요약문(불릿포인트 형식)을 정확히 5줄로 작성하라.
-    4. 'importance'는 'HIGH'(학교 운영 직접 영향), 'MEDIUM'(향후 정책 변화 예상), 'LOW'(일반 교육뉴스)로 분류하라.
-    5. 'impact_rating'은 학교 영향도로 1부터 5 사이의 정수로 표기하라.
-    6. 실존하는 최신 기사 정보를 기반으로 하되, 출처 언론사('source_press'), 발행일('source_date', YYYY-MM-DD), 원문 링크('source_link')를 포함하라. 단, 'source_link'는 구글 검색 리다이렉트 주소(예: 'google.com/grounding-api-redirect...' 또는 'vertexaisearch.cloud.google.com...')가 아니라, 해당 기사의 실제 원본 언론사 기사 상세 URL(예: 'https://news.kbs.co.kr/news/pc/view/view.do?ncd=...' 또는 'https://www.yna.co.kr/view/AKR...')이어야만 한다.
+    학원 홍보, 대학 입시 광고, 단순 사건사고, 조회수 목적의 자극적 기사는 철저히 제외한다.
+    각 기사는 아래 특별 규칙을 준수하여 요약 및 분석해야 한다:
+    1. [우선순위 분류 규칙]:
+       - 1순위: '강원특별자치도교육청' 및 산하 지역교육청(예: 춘천, 원주, 강릉, 속초양양, 홍천 등 교육지원청) 뉴스. 이 경우 'priority_reason'에 "강원교육 우선순위"라고 정확히 한글로 기입하라.
+       - 2순위: '교원 연금', '정년연장', '교원 정원', '교육부 정책', '법률 개정', '시행령 개정' 관련 뉴스. 이 경우 'priority_reason'에 "중대 현안(2순위)"라고 정확히 한글로 기입하라.
+       - 그 외 뉴스는 'priority_reason'을 빈 문자열("")로 하라.
+    2. [기사 통합 규칙]: 동일하거나 거의 같은 내용의 기사는 중복해서 나열하지 말고, 단일 기사로 하나로 통합하여 요약해야 한다.
+    3. [내용과 의견 구분 규칙]: 요약 작성 시 기사의 객관적 사실 정보(기사 내용)와 주관적 주장 혹은 논평(의견)은 명확히 구분하여 사실에 기반해 작성하라.
+    4. [정책 확정 구분 규칙]: 확정된 정책(법안 통과, 시행 등)과 검토 및 논의 중인 정책을 반드시 명확히 구분하여, status 필드를 'CONFIRMED' 혹은 'UNDER_REVIEW'로 알맞게 매핑하라.
+    5. 'summary_points'에는 해당 뉴스의 핵심 내용을 담은 요약문(불릿포인트 형식)을 정확히 5줄로 작성하라.
+    6. 'importance'는 'HIGH'(학교 운영 직접 영향), 'MEDIUM'(향후 정책 변화 예상), 'LOW'(일반 교육뉴스)로 분류하라.
+    7. 'impact_rating'은 학교 영향도로 1부터 5 사이의 정수로 표기하라.
+    8. 실존하는 최신 기사 정보를 기반으로 하되, 출처 언론사('source_press'), 발행일('source_date', YYYY-MM-DD), 원문 링크('source_link')를 포함하라. 단, 'source_link'는 구글 검색 리다이렉트 주소(예: 'google.com/grounding-api-redirect...' 또는 'vertexaisearch.cloud.google.com...')가 아니라, 해당 기사의 실제 원본 언론사 기사 상세 URL(예: 'https://news.kbs.co.kr/news/pc/view/view.do?ncd=...' 또는 'https://www.yna.co.kr/view/AKR...')이어야만 한다.`;
 
     응답은 반드시 아래의 JSON 스키마를 따르는 JSON 데이터 형태로만 반환해야 하며, 마크다운 코드 블록( \`\`\`json ... \`\`\` ) 안에 넣어라. 다른 인사말이나 설명 텍스트 없이 JSON만 반환하라.
 
@@ -792,34 +807,46 @@ function renderAllNews() {
             const titleText = (item.title || "").toLowerCase();
             const pressText = (item.source_press || "").toLowerCase();
             const summaryText = (item.summary_points || []).join(" ").toLowerCase();
+            const reason = item.priority_reason || "";
 
-            // 1. Primary priorities (Score 2)
-            if (item.priority_reason) return 2;
-            
-            const hasGangwonOffice = titleText.includes("강원특별자치도교육청") || titleText.includes("강원교육청");
-            const isGangwonPress = pressText.includes("강원일보") || pressText.includes("강원도민일보");
-            if (hasGangwonOffice && isGangwonPress) return 2;
+            // 1순위: 강원특별자치도교육청 및 산하 지역교육청 뉴스
+            if (reason.includes("강원교육") || reason.includes("강원특별자치도교육청")) {
+                return 3;
+            }
+            const gangwonKeywords = [
+                "강원특별자치도교육청", "강원도교육청", "강원교육청", 
+                "춘천교육지원청", "원주교육지원청", "강릉교육지원청", "속초양양교육지원청",
+                "동해교육지원청", "태백교육지원청", "삼척교육지원청", "홍천교육지원청",
+                "횡성교육지원청", "영월교육지원청", "평창교육지원청", "정선교육지원청",
+                "철원교육지원청", "화천교육지원청", "양구교육지원청", "인제교육지원청",
+                "고성교육지원청", "양양교육지원청"
+            ];
+            if (gangwonKeywords.some(kw => titleText.includes(kw) || summaryText.includes(kw))) {
+                return 3;
+            }
+            if ((titleText.includes("교육청") || summaryText.includes("교육청")) && (pressText.includes("강원일보") || pressText.includes("강원도민일보"))) {
+                return 3;
+            }
 
+            // 2순위: 교원 연금, 정년연장, 교원 정원, 교육부 정책, 법률 개정, 시행령 개정 뉴스
+            if (reason.includes("중대 현안") || reason.includes("2순위")) {
+                return 2;
+            }
             const primaryKeywords = [
                 "교원 연금", "교원연금", "공무원연금", "정년연장", "정년 연장",
-                "교원 정원", "교원정원", "교육부 정책", "교육부 중대 정책",
+                "교원 정원", "교원정원", "교육부 정책", "교육부 정책",
                 "법령 개정", "법률 개정", "법령개정", "법률개정", "시행령 개정"
             ];
             if (primaryKeywords.some(kw => titleText.includes(kw.toLowerCase()) || summaryText.includes(kw.toLowerCase()))) {
                 return 2;
             }
 
-            // 2. Secondary priorities (Score 1)
+            // 3순위 (참고용 기타 주요 교육 키워드)
             const secondaryKeywords = [
-                "시도교육청 정책", "시도교육청정책", "교원 인사", "교원인사",
-                "임금피크제", "임금 피크제", "교원 보수", "교원보수",
-                "학교 행정", "학교행정", "학교 안전", "학교안전",
-                "학교폭력", "학교 폭력", "생활지도", "생활 지도",
-                "교육과정", "교육 과정", "ai교육", "ai 교육",
-                "디지털교과서", "디지털 교과서", "늘봄학교", "늘봄 학교",
-                "초등교육", "초등 교육", "교육 관련 법률 개정",
-                "국회 교육위원회", "교육부 보도자료", "인사혁신처 발표",
-                "공무원 관련 제도 변화"
+                "시도교육청 정책", "교원 인사", "임금피크제", "교원 보수",
+                "학교 행정", "학교 안전", "학교폭력", "생활지도",
+                "교육과정", "ai교육", "디지털교과서", "늘봄학교",
+                "초등교육", "국회 교육위원회", "인사혁신처", "공무원 관련 제도"
             ];
             if (secondaryKeywords.some(kw => titleText.includes(kw.toLowerCase()) || summaryText.includes(kw.toLowerCase()))) {
                 return 1;
@@ -1004,10 +1031,12 @@ function playAudioBriefing(newsId) {
     news.summary_points.forEach((point, idx) => {
         textToRead += `${idx + 1}번, ${point} `;
     });
-    textToRead += `학교 관리자를 위한 대처 제안입니다. `;
-    news.action_items.forEach((act, idx) => {
-        textToRead += `${idx + 1}번, ${act} `;
-    });
+    if (news.action_items) {
+        textToRead += `학교 관리자를 위한 대처 제안입니다. `;
+        news.action_items.forEach((act, idx) => {
+            textToRead += `${idx + 1}번, ${act} `;
+        });
+    }
 
     const utterance = new SpeechSynthesisUtterance(textToRead);
     utterance.lang = 'ko-KR';
