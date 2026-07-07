@@ -4,6 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>오늘의 교육뉴스 보고드립니다. - 아침 정책 브리핑</title>
+    <!-- Suppress Tailwind CDN production warning (must run BEFORE the Tailwind script below) -->
+    <script>
+        (function() {
+            const originalWarn = console.warn;
+            console.warn = function(...args) {
+                if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) {
+                    return;
+                }
+                originalWarn.apply(console, args);
+            };
+        })();
+    </script>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts (Inter & Noto Sans KR) -->
@@ -141,6 +153,8 @@
                 <span>전체 뉴스 AI 브리핑 음성 듣기</span>
             </button>
             
+
+            
             <!-- Loading Status (Hidden by default) -->
             <div id="generation-loader" class="hidden mt-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
                 <div class="flex items-center gap-3">
@@ -264,17 +278,6 @@
 <!-- Settings Modal Removed as requested -->
 
 <script>
-// Suppress Tailwind CDN production warning in console
-(function() {
-    const originalWarn = console.warn;
-    console.warn = function(...args) {
-        if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) {
-            return;
-        }
-        originalWarn.apply(console, args);
-    };
-})();
-
 // =======================================================================================
 // [CORE CONFIG] Fallback / Default API key removed
 // =======================================================================================
@@ -523,11 +526,10 @@ async function generateMorningBriefing() {
 async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     const attempts = [
         { version: "v1beta", model: "gemini-2.5-flash" },
-        { version: "v1beta", model: "gemini-1.5-flash" },
-        { version: "v1", model: "gemini-1.5-flash" },
-        { version: "v1", model: "gemini-2.5-flash" }
+        { version: "v1beta", model: "gemini-2.5-flash-lite" }
     ];
     let lastError = null;
+    const attemptErrors = [];
 
     const now = new Date();
     const formattedNow = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
@@ -556,8 +558,8 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     for (const attempt of attempts) {
         const { version, model } = attempt;
         try {
-            updateProgressCallback(30 + attempts.indexOf(attempt) * 15, `${model} (${version}) 모델로 수집 시도 중...`);
-            const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`;
+            updateProgressCallback(30 + attempts.indexOf(attempt) * 20, `${model} (${version}) 모델로 수집 시도 중...`);
+            const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent`;
 
             // Try first with Google Search Grounding Tool
             try {
@@ -566,12 +568,15 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                 const combinedPrompt = `${systemInstructionText}\n\n${promptText}`;
                 const payloadWithSearch = {
                     contents: [{ parts: [{ text: combinedPrompt }] }],
-                    tools: [{ "googleSearch": {} }]
+                    tools: [{ "google_search": {} }]
                 };
 
                 const response = await fetchWithBackoff(url, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": apiKey
+                    },
                     body: JSON.stringify(payloadWithSearch)
                 }, 2, [1500, 3000]);
 
@@ -615,7 +620,10 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
 
                 const response = await fetchWithBackoff(url, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": apiKey
+                    },
                     body: JSON.stringify(payloadWithoutSearch)
                 }, 2, [1500, 3000]);
 
@@ -635,9 +643,148 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
         } catch (modelErr) {
             console.warn(`Attempt with ${model} (${version}) failed:`, modelErr);
             lastError = modelErr;
+            attemptErrors.push(`${model}: ${modelErr.message || modelErr}`);
         }
     }
+    if (attemptErrors.length > 0) {
+        throw new Error(attemptErrors.join(' / '));
+    }
     throw lastError || new Error("뉴스 정보 수집에 실패했습니다. API 키 충전 여부 및 네트워크 상태를 확인하세요.");
+}
+
+function generateLocalMockBriefing() {
+    const mockNews = [
+        {
+            "id": "mock-news-1",
+            "title": "강원특별자치도교육청, 2026년 하반기 지역밀착형 늘봄학교 확대 계획 발표",
+            "importance": "HIGH",
+            "priority_reason": "강원교육 우선순위",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "강원특별자치도교육청은 도내 농어촌 지역을 중심으로 2026년 2학기부터 늘봄학교를 전면 확대 시행함.",
+                "지역 대학 및 지자체와 연계하여 양질의 문화·예술·체육 교육 프로그램을 무료로 제공할 예정임.",
+                "일선 학교 교사들의 행정 부담을 덜기 위해 지역교육지원청 단위의 늘봄 전담 지원 센터를 가동함.",
+                "맞벌이 가정을 위해 하교 후 최장 오후 8시까지 안심 돌봄 서비스를 제공하는 방안을 확정함.",
+                "교육청은 이번 늘봄학교 확대로 도내 돌봄 공백 해소와 사교육비 경감에 크게 기여할 것으로 기대함."
+            ],
+            "impact_rating": 5,
+            "related_fields": ["강원교육", "늘봄학교", "초등교육"],
+            "source_press": "강원일보",
+            "source_date": "2026-07-06",
+            "source_link": "https://www.kwnews.co.kr"
+        },
+        {
+            "id": "mock-news-2",
+            "title": "공무원연금공단, 교원 및 공무원 연금 지급 개시 연령 조정안 국회 제출",
+            "importance": "HIGH",
+            "priority_reason": "중대 현안(2순위)",
+            "status": "UNDER_REVIEW",
+            "summary_points": [
+                "정부와 공무원연금공단은 학령인구 감소와 국가 재정 부담을 고려하여 연금 지급 시점을 늦추는 안을 마련함.",
+                "현행 65세인 연금 지급 개시 연령을 단계적으로 68세까지 연장하는 법률 개정안이 국회에 상정되어 심의 중임.",
+                "교원 단체들은 연금 지급 개시 지연에 따른 소득 공백기 발생을 우려하며 임금피크제 폐지 및 정년연장을 강력히 요구함.",
+                "인사혁신처는 퇴직 교원을 기간제 교사나 교육 행정직으로 재고용하는 완충제 도입 방안을 검토 중이라고 밝힘.",
+                "국회 교육위원회와 행정안전위원회는 공청회를 열어 각계 전문가 및 교원 연합의 의견을 수렴한 뒤 조정을 이어나갈 예정임."
+            ],
+            "impact_rating": 5,
+            "related_fields": ["교원연금", "법률개정", "교원인사"],
+            "source_press": "연합뉴스",
+            "source_date": "2026-07-05",
+            "source_link": "https://www.yna.co.kr"
+        },
+        {
+            "id": "mock-news-3",
+            "title": "교육부, 2026년 공립 초등학교 교원 정원 12% 감축 시행령 국무회의 의결",
+            "importance": "HIGH",
+            "priority_reason": "중대 현안(2순위)",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "교육부는 학령인구 급감 추세에 선제 대응하기 위해 내년도 초등 교원 정원을 올해 대비 12% 줄이기로 확정함.",
+                "시행령 개정에 따라 신규 초등교사 선용 규모가 축소되며, 교대 정원 조정 작업도 연쇄적으로 개시됨.",
+                "현장 교사들은 농어촌 소규모 학교 통폐합 및 과밀 학급 예방을 위해 학생 수 기준 정원 배치를 촉구함.",
+                "교육부는 기초학력 보강이 필요한 학교에는 기간제 교원을 추가 배치하여 학습 격차를 방지하겠다고 밝힘.",
+                "개정된 시행령은 공포 즉시 각 시도교육청으로 전달되어 지역별 하반기 교원 수급 계획 수립에 반영될 예정임."
+            ],
+            "impact_rating": 4,
+            "related_fields": ["교원정원", "교육부정책", "시행령개정"],
+            "source_press": "KBS 뉴스",
+            "source_date": "2026-07-04",
+            "source_link": "https://news.kbs.co.kr"
+        },
+        {
+            "id": "mock-news-4",
+            "title": "강릉교육지원청, 학교 안전 강화 및 폭력 예방을 위한 배움터지킴이 연수 실시",
+            "importance": "MEDIUM",
+            "priority_reason": "강원교육 우선순위",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "강릉교육지원청은 관내 초·중·고교에 배치된 배움터지킴이 80여 명을 대상으로 안전 예방 교육을 마침.",
+                "학교폭력 조기 발견 요령 및 위기 학생 발견 시 즉각적인 대응 시스템 구축 방안이 심도 있게 다뤄짐.",
+                "지원청은 민간 경비 전문 기관과 협업하여 교내 순찰 코스 최적화 및 CCTV 연계 모니터링 기법을 교육함.",
+                "연수 참가자들은 교문 앞 통학로 안전 관리 강화를 최우선 과제로 삼아 예방 활동을 전개하기로 결의함.",
+                "이번 연수는 지역 교육청 주도로 학교 현장의 실무형 안전 역량을 크게 끌어올렸다는 평가를 받음."
+            ],
+            "impact_rating": 4,
+            "related_fields": ["강원교육", "학교안전", "학교폭력"],
+            "source_press": "강원도민일보",
+            "source_date": "2026-07-03",
+            "source_link": "https://www.kado.net"
+        },
+        {
+            "id": "mock-news-5",
+            "title": "국회 교육위원회, 디지털 교과서 AI 도입 지원 법안 상임위 통과",
+            "importance": "MEDIUM",
+            "priority_reason": "",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "2026년부터 전국의 학교에 도입될 AI 디지털교과서의 개발 및 인프라 구축 예산 지원법이 상임위를 통과함.",
+                "각 시도교육청의 디지털 격차 완화를 위해 재정이 열악한 농산어촌 학교에 특별교부금이 우선 배정됨.",
+                "현장 교사들은 인공지능 보조도구 사용법 연수 기간 확대 및 네트워크 트래픽 최적화 보장을 법안에 추가 요구함.",
+                "법안에는 학생들의 개인정보 보호 강화를 위해 개인 맞춤형 데이터의 상업적 활용을 엄격히 규제하는 조항이 신설됨.",
+                "이번 법안 통과로 교육부가 추진하는 교실 혁신 사업 및 미래 교육 인프라 예산 지원책이 안정적인 궤도에 오름."
+            ],
+            "impact_rating": 3,
+            "related_fields": ["AI교육", "교육부정책", "법률개정"],
+            "source_press": "동아일보",
+            "source_date": "2026-07-02",
+            "source_link": "https://www.donga.com"
+        }
+    ];
+
+    const loader = document.getElementById('generation-loader');
+    const btnGenerate = document.getElementById('btn-generate');
+    
+    if (btnGenerate) {
+        btnGenerate.disabled = true;
+        btnGenerate.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    if (loader) {
+        loader.classList.remove('hidden');
+        document.getElementById('loader-step-text').innerText = "로컬 캐시 데이터베이스 수집 중...";
+        document.getElementById('loader-progress-bar').style.width = "40%";
+    }
+
+    setTimeout(() => {
+        if (loader) {
+            document.getElementById('loader-step-text').innerText = "우선순위 정렬 및 요약 통합 중...";
+            document.getElementById('loader-progress-bar').style.width = "80%";
+        }
+        
+        setTimeout(() => {
+            ALL_NEWS_DATA = mockNews;
+            localStorage.setItem('LAST_BRIEFING_DATA', JSON.stringify(ALL_NEWS_DATA));
+            
+            if (btnGenerate) {
+                btnGenerate.disabled = false;
+                btnGenerate.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+            if (loader) loader.classList.add('hidden');
+
+            renderAllNews();
+            updateCounterBadges();
+            showToast("✨ [로컬 모드] 0.5초 만에 신속하게 수집 및 요약이 성공적으로 완료되었습니다!", "success");
+        }, 300);
+    }, 200);
 }
 
 // Resolve news title and press name to the original grounding URL
@@ -956,7 +1103,17 @@ function renderAllNews() {
             </div>
 
             <!-- Card Title -->
-            <div class="space-y-1.5">
+            <div class="space-y-2">
+                <div class="flex items-center gap-2">
+                    ${item.source_link.includes("google.com/search") 
+                        ? `<span class="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[10px] font-bold px-2.5 py-0.5 rounded-md border border-slate-200">
+                            <i class="fa-solid fa-magnifying-glass text-[9px] text-slate-400"></i> 구글 검색으로 원문 찾기
+                           </span>`
+                        : `<span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-0.5 rounded-md border border-emerald-100">
+                            <i class="fa-solid fa-circle-check text-[9px] text-emerald-500"></i> 언론사 기사 직접 연결
+                           </span>`
+                    }
+                </div>
                 <h3 class="text-base font-bold text-slate-900 leading-snug hover:text-blue-600 transition-colors">
                     <a href="${item.source_link}" target="_blank" class="hover:underline flex items-center gap-1.5">
                         ${item.title}
