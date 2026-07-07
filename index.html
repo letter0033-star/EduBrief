@@ -225,7 +225,7 @@
                 </div>
                 <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-file-invoice text-blue-600"></i>
-                    <span>최근 7일간의 교육뉴스 요약 리포트(강원 기준)</span>
+                    <span>최근 7일간의 교육뉴스(강원 기준)</span>
                 </h2>
                 <p class="text-xs text-slate-500">실시간 Gemini 검색 기반으로 조회수 전용 전단지(정보지)를 제거한 맞춤형 프리미엄 리포트입니다.</p>
             </div>
@@ -525,7 +525,7 @@ async function generateMorningBriefing() {
 async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     const attempts = [
         { version: "v1beta", model: "gemini-2.5-flash" },
-        { version: "v1beta", model: "gemini-2.0-flash" }
+        { version: "v1beta", model: "gemini-2.5-pro" }
     ];
     let lastError = null;
 
@@ -534,215 +534,118 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     const cutoffTime = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
     const formattedCutoff = cutoffTime.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
 
-    const promptText = `현재 시간은 대한민국 표준시(KST)로 ${formattedNow}이다. 대한민국 교육부 정책, 시도교육청 정책, 교원 인사, 교원 정원, 교원 연금, 공무원연금, 정년연장, 임금피크제, 교원 보수, 학교 행정, 학교 안전, 학교폭력, 생활지도, 교육과정, AI교육, 디지털교과서, 늘봄학교, 초등교육, 교육 관련 법률 개정, 국회 교육위원회, 교육부 보도자료, 인사혁신처 발표, 공무원 관련 제도 변화와 관련된 최신 뉴스를 실시간 웹 검색(Google Search)으로 수집하라. 관련성이 다소 낮거나 간접적인 연관성이 있는 교육 뉴스이더라도 다양하고 풍부한 보고서 작성을 위해 반드시 15개 내외(최소 12개, 최대 18개)의 많은 뉴스를 수집하여 작성하라.
+    const promptText = `현재 시간은 대한민국 표준시(KST)로 ${formattedNow}이다. 대한민국 교육부 정책, 시도교육청 정책, 교원 인사, 교원 정원, 교원 연금, 공무원연금, 정년연장, 임금피크제, 교원 보수, 학교 행정, 학교 안전, 학교폭력, 생활지도, 교육과정, AI교육, 디지털교과서, 늘봄학교, 초등교육, 교육 관련 법률 개정, 국회 교육위원회, 교육부 보도자료, 인사혁신처 발표, 공무원 관련 제도 변화와 관련된 최신 뉴스를 실시간 웹 검색(Google Search)으로 수집하라.
+    검색 결과로 얻은 실제 뉴스 기사 개수가 요구량보다 부족하더라도(예: 3~7개 등), 절대로 가짜 뉴스를 지어내거나 꾸며내어 채워 넣지 말고, 오직 실시간 구글 검색 결과에 실제로 존재하는 기사 정보만을 사용하여 작성하라. 가짜 뉴스 정보의 생성을 절대 금지하며, 수집된 실제 뉴스 기사의 개수 그대로 리포트를 구성하라.
     특히 대한민국 교육에 지대한 영향을 주는 7월 최신 뉴스(오늘과 어제인 7월 6일~7일 보도된 속보 뉴스)를 가장 우선적으로 구글 검색으로 찾아내어 수집하라.
     단, 검색 범위는 현재 시간 기준 최근 7일(일주일) 이내(즉, ${formattedCutoff} 이후)에 작성되거나 발행된 뉴스 기사로 엄격히 제한한다. 7일보다 오래된 기사는 수집 목록에서 무조건 제외하라.
     각 기사의 'source_date' 필드(발행일)는 반드시 이 범위 안의 실제 날짜(YYYY-MM-DD)로 작성되어야 한다.
+    각 기사의 'original_title' 필드는 검색된 기사의 요약되지 않은 실제 언론사 배포 원본 기사 제목 전체(단 한 글자도 수정하지 않은 원문 제목 그대로)를 기록하고, 'title' 필드에는 리포트 카드를 위한 간결하고 정돈된 한글 요약형 제목을 기록하라.
     학원 홍보, 대학 입시 광고, 단순 사건사고, 조회수 목적의 자극적 기사는 철저히 제외한다.
     각 기사는 아래 특별 규칙을 준수하여 요약 및 분석해야 한다:
     1. [우선순위 분류 규칙]:
        - 1순위: '강원특별자치도교육청' 및 산하 지역교육청(예: 춘천, 원주, 강릉, 속초양양, 홍천 등 교육지원청) 뉴스. 이 경우 'priority_reason'에 "강원교육 우선순위"라고 정확히 한글로 기입하라.
        - 2순위: '교원 연금', '정년연장', '교원 정원', '교육부 정책', '법률 개정', '시행령 개정' 관련 뉴스. 이 경우 'priority_reason'에 "중대 현안(2순위)"라고 정확히 한글로 기입하라.
        - 그 외 뉴스는 'priority_reason'을 빈 문자열("")로 하라.
-    2. [기사 통합 규칙]: 동일하거나 거의 같은 내용의 기사는 중복해서 나열하지 말고, 단일 기사로 하나로 통합하여 요약해야 한다.
+    2. [기사 통합 및 우선 배치 규칙]:
+       - 중복되거나 유사한 소식의 뉴스가 여러 개 검색된다면, 반드시 강원도 지역 언론사인 '강원일보' 또는 '강원도민일보'의 보도 기사를 최우선으로 선택하여 단일 뉴스 리포트로 통합 구성하고 대표 기사 제목으로 배치하라.
+       - 강원특별자치도교육청과 직접적인 관련이 없는 전국 단위 정책 및 일반 교육 기사의 경우에는, 지방의 소형 언론매체 대신 신뢰도가 높은 전국구 주요 유력 언론사(예: 연합뉴스, KBS, MBC, SBS, YTN, 조선일보, 중앙일보, 동아일보, 한겨레, 경향신문 등 대형 방송국 및 전국구 일간지)의 기사로 대표 기사 및 출처를 구성하여 선별 배치하라.
     3. [내용과 의견 구분 규칙]: 요약 작성 시 기사의 객관적 사실 정보(기사 내용)와 주관적 주장 혹은 논평(의견)은 명확히 구분하여 사실에 기반해 작성하라.
     4. [정책 확정 구분 규칙]: 확정된 정책(법안 통과, 시행 등)과 검토 및 논의 중인 정책을 반드시 명확히 구분하여, status 필드를 'CONFIRMED' 혹은 'UNDER_REVIEW'로 알맞게 매핑하라.
     5. 'summary_points'에는 해당 뉴스의 핵심 내용을 담은 요약문(불릿포인트 형식)을 정확히 5줄로 작성하라.
     6. 'importance'는 'HIGH'(학교 운영 직접 영향), 'MEDIUM'(향후 정책 변화 예상), 'LOW'(일반 교육뉴스)로 분류하라.
     7. 'impact_rating'은 학교 영향도로 1부터 5 사이의 정수로 표기하라.
-    8. 실존하는 최신 기사 정보를 기반으로 하되, 출처 언론사('source_press'), 발행일('source_date', YYYY-MM-DD), 원문 링크('source_link')를 포함하라. 단, 'source_link'는 구글 검색 리다이렉트 주소(예: 'google.com/grounding-api-redirect...' 또는 'vertexaisearch.cloud.google.com...')가 아니라, 해당 기사의 실제 원본 언론사 기사 상세 URL(예: 'https://news.kbs.co.kr/news/pc/view/view.do?ncd=...' 또는 'https://www.yna.co.kr/view/AKR...')이어야만 한다.`;
+    8. 실존하는 최신 기사 정보를 기반으로 하되, 출처 언론사('source_press'), 발행일('source_date', YYYY-MM-DD), 원문 링크('source_link')를 포함하라. 단, 'source_link'는 구글 검색 리다이렉트 주소(예: 'google.com/grounding-api-redirect...' 또는 'vertexaisearch.cloud.google.com...')가 아니라, 해당 기사의 실제 원본 언론사 기사 상세 URL(예: 'https://news.kbs.co.kr/news/pc/view/view.do?ncd=...' 또는 'https://www.yna.co.kr/view/AKR...')이어야만 한다.
 
-    const systemInstructionText = "너는 대한민국 학교 관리자(교장, 교감)를 위한 교육 전문 AI 비서이다. 제공된 스키마에 맞춰 최신 교육 뉴스를 실시간 수집, 정제하여 정확한 JSON 객체로 반환하라. 학원 마케팅이나 대학 광고는 엄격히 걸러내라.";
+    [중요] 반드시 다른 앞뒤 설명이나 꾸밈말을 완전히 제외하고 오직 아래 스키마를 따르는 JSON 코드 블록( \`\`\`json { "news": [...] } \`\`\` )만을 생성하라.
+    JSON 포맷 구조 스키마 예시:
+    {
+      "news": [
+        {
+          "id": "edu-news-unique-id",
+          "title": "요약형 카드 제목",
+          "original_title": "원본 기사의 실제 기사 제목 전체",
+          "importance": "HIGH",
+          "priority_reason": "강원교육 우선순위 또는 중대 현안(2순위) 또는 빈문자열",
+          "status": "CONFIRMED",
+          "summary_points": [
+            "요약 포인트 1",
+            "요약 포인트 2",
+            "요약 포인트 3",
+            "요약 포인트 4",
+            "요약 포인트 5"
+          ],
+          "impact_rating": 4,
+          "related_fields": ["AI교육", "늘봄학교"],
+          "source_press": "언론사명",
+          "source_date": "YYYY-MM-DD",
+          "source_link": "기사 URL"
+        }
+      ]
+    }`;
+
+    const systemInstructionText = "너는 대한민국 학교 관리자(교장, 교감)를 위한 교육 전문 AI 비서이다. 스키마 예시에 맞춰 최신 교육 뉴스를 실시간 수집, 정제하여 정확한 JSON 문자열 코드 블록( \`\`\`json ... \`\`\` )으로 반환하라. 학원 마케팅이나 대학 광고는 엄격히 걸러내라.";
 
     for (const attempt of attempts) {
         const { version, model } = attempt;
         try {
-            updateProgressCallback(30 + attempts.indexOf(attempt) * 25, `${model} (${version}) 모델로 수집 시도 중...`);
+            updateProgressCallback(30 + attempts.indexOf(attempt) * 35, `${model} (${version}) 모델로 수집 시도 중...`);
             const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent`;
 
-            // Try first with Google Search Grounding Tool
-            try {
-                updateProgressCallback(45, `${model} (${version}) 실시간 구글 검색망 연동 중...`);
-                
-                const generationConfig = {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "OBJECT",
-                        properties: {
-                            news: {
-                                type: "ARRAY",
-                                items: {
-                                    type: "OBJECT",
-                                    properties: {
-                                        id: { type: "STRING" },
-                                        title: { type: "STRING" },
-                                        importance: { type: "STRING", enum: ["HIGH", "MEDIUM", "LOW"] },
-                                        priority_reason: { type: "STRING" },
-                                        status: { type: "STRING", enum: ["CONFIRMED", "UNDER_REVIEW"] },
-                                        summary_points: {
-                                            type: "ARRAY",
-                                            items: { type: "STRING" }
-                                        },
-                                        impact_rating: { type: "INTEGER" },
-                                        related_fields: {
-                                            type: "ARRAY",
-                                            items: { type: "STRING" }
-                                        },
-                                        source_press: { type: "STRING" },
-                                        source_date: { type: "STRING" },
-                                        source_link: { type: "STRING" }
-                                    },
-                                    required: ["id", "title", "importance", "priority_reason", "status", "summary_points", "impact_rating", "related_fields", "source_press", "source_date", "source_link"]
-                                }
+            updateProgressCallback(45, `${model} (${version}) 실시간 구글 검색망 연동 중...`);
+            
+            const combinedPrompt = `${systemInstructionText}\n\n${promptText}`;
+            const payloadWithSearch = {
+                contents: [{ parts: [{ text: combinedPrompt }] }],
+                tools: [{ "google_search": {} }]
+            };
+
+            const response = await fetchWithBackoff(url, {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": apiKey
+                },
+                body: JSON.stringify(payloadWithSearch)
+            }, 2, [1500, 3000]);
+
+            const result = await response.json();
+            if (result.error) {
+                throw new Error(result.error.message || "API error");
+            }
+
+            const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (jsonText) {
+                const parsed = extractJsonFromString(jsonText);
+                const newsArray = extractNewsArray(parsed);
+                if (newsArray && newsArray.length > 0) {
+                    const sanitizedNews = sanitizeNewsItems(newsArray);
+                    if (sanitizedNews.length > 0) {
+                        const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+                        sanitizedNews.forEach(item => {
+                            const matchedUrl = findBestMatchingUrl(item.original_title, item.source_press, groundingChunks);
+                            if (matchedUrl) {
+                                item.source_link = matchedUrl;
+                            } else {
+                                item.source_link = `https://www.google.com/search?q=${encodeURIComponent(item.original_title + ' ' + (item.source_press || ''))}`;
                             }
-                        },
-                        required: ["news"]
+                        });
+                        
+                        // 날짜 강제 필터링 (최근 7일)
+                        const filteredNews = sanitizedNews.filter(item => {
+                            try {
+                                const itemDate = new Date(item.source_date);
+                                if (isNaN(itemDate.getTime())) return true;
+                                const diffTime = now.getTime() - itemDate.getTime();
+                                const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                                return diffDays <= 7.9; // 7일 제한 (7.9일 버퍼)
+                            } catch (e) {
+                                return true;
+                            }
+                        });
+                        return filteredNews.length > 0 ? filteredNews : sanitizedNews;
                     }
-                };
-
-                const combinedPrompt = `${systemInstructionText}\n\n${promptText}`;
-                const payloadWithSearch = {
-                    contents: [{ parts: [{ text: combinedPrompt }] }],
-                    tools: [{ "google_search": {} }],
-                    generationConfig: generationConfig
-                };
-
-                const response = await fetchWithBackoff(url, {
-                    method: "POST",
-                    headers: { 
-                        "Content-Type": "application/json",
-                        "x-goog-api-key": apiKey
-                    },
-                    body: JSON.stringify(payloadWithSearch)
-                }, 2, [1500, 3000]);
-
-                const result = await response.json();
-                if (result.error) {
-                    throw new Error(result.error.message || "API error");
                 }
-
-                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (jsonText) {
-                    const parsed = extractJsonFromString(jsonText);
-                    const newsArray = extractNewsArray(parsed);
-                    if (newsArray && newsArray.length > 0) {
-                        const sanitizedNews = sanitizeNewsItems(newsArray);
-                        if (sanitizedNews.length > 0) {
-                            const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-                            sanitizedNews.forEach(item => {
-                                const matchedUrl = findBestMatchingUrl(item.title, item.source_press, groundingChunks);
-                                if (matchedUrl) {
-                                    item.source_link = matchedUrl;
-                                }
-                            });
-                            
-                            // 날짜 강제 필터링 (최근 7일)
-                            const filteredNews = sanitizedNews.filter(item => {
-                                try {
-                                    const itemDate = new Date(item.source_date);
-                                    if (isNaN(itemDate.getTime())) return true;
-                                    const diffTime = now.getTime() - itemDate.getTime();
-                                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
-                                    return diffDays <= 7.9; // 7일 제한 (7.9일 버퍼)
-                                } catch (e) {
-                                    return true;
-                                }
-                            });
-                            return filteredNews.length > 0 ? filteredNews : sanitizedNews;
-                        }
-                    }
-                    throw new Error(`검색 응답에서 뉴스 JSON을 파싱하지 못함 (응답 일부: ${jsonText.slice(0, 120)})`);
-                }
-            } catch (searchError) {
-                const errorStr = String(searchError);
-                // If it is a model not found / API version compatibility issue, skip to next combination immediately
-                if (errorStr.includes("not found") || errorStr.includes("404") || errorStr.includes("not supported")) {
-                    throw searchError;
-                }
-
-                console.warn(`${model} (${version}) Grounding failed, trying standard fallback generation:`, searchError);
-                updateProgressCallback(65, `${model} (${version}) AI 교육 전문지식 기반 생성 중...`);
-                
-                const fallbackPrompt = promptText + "\n\n[중요 지시사항: 현재 실시간 웹 검색 도구 로드 한도 초과 또는 일시적 네트워크 장애 상태이므로, 너의 대한민국 교육 정책 지식과 트렌드를 종합하여 2026년 7월 7일 기준의 최신 핵심 교육부 정책 속보 및 학교 행정 공문 뉴스를 15개 작성해 다오. 관련성이 다소 낮거나 간접적인 교육 뉴스이더라도 다양하게 참고할 수 있도록 15개의 리포트를 가득 채워 구성하고, 출처 언론사 및 날짜(최근 7일 이내에 해당하는 2026-06-30 ~ 2026-07-07 사이)도 최신 기사 날짜로 설정하고, 'source_link'는 구글 기사 검색 결과 링크(예: https://www.google.com/search?q=...)로 채워다오.]";
-                
-                const combinedFallbackPrompt = `${systemInstructionText}\n\n${fallbackPrompt}`;
-                const payloadWithoutSearch = {
-                    contents: [{ parts: [{ text: combinedFallbackPrompt }] }],
-                    generationConfig: {
-                        responseMimeType: "application/json",
-                        responseSchema: {
-                            type: "OBJECT",
-                            properties: {
-                                news: {
-                                    type: "ARRAY",
-                                    items: {
-                                        type: "OBJECT",
-                                        properties: {
-                                            id: { type: "STRING" },
-                                            title: { type: "STRING" },
-                                            importance: { type: "STRING", enum: ["HIGH", "MEDIUM", "LOW"] },
-                                            priority_reason: { type: "STRING" },
-                                            status: { type: "STRING", enum: ["CONFIRMED", "UNDER_REVIEW"] },
-                                            summary_points: {
-                                                type: "ARRAY",
-                                                items: { type: "STRING" }
-                                            },
-                                            impact_rating: { type: "INTEGER" },
-                                            related_fields: {
-                                                type: "ARRAY",
-                                                items: { type: "STRING" }
-                                            },
-                                            source_press: { type: "STRING" },
-                                            source_date: { type: "STRING" },
-                                            source_link: { type: "STRING" }
-                                        },
-                                        required: ["id", "title", "importance", "priority_reason", "status", "summary_points", "impact_rating", "related_fields", "source_press", "source_date", "source_link"]
-                                    }
-                                }
-                            },
-                            required: ["news"]
-                        }
-                    }
-                };
-
-                const response = await fetchWithBackoff(url, {
-                    method: "POST",
-                    headers: { 
-                        "Content-Type": "application/json",
-                        "x-goog-api-key": apiKey
-                    },
-                    body: JSON.stringify(payloadWithoutSearch)
-                }, 2, [1500, 3000]);
-
-                const result = await response.json();
-                if (result.error) {
-                    throw new Error(result.error.message || "Fallback API error");
-                }
-
-                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (jsonText) {
-                    const parsed = extractJsonFromString(jsonText);
-                    const newsArray = extractNewsArray(parsed);
-                    if (newsArray && newsArray.length > 0) {
-                        const sanitizedNews = sanitizeNewsItems(newsArray);
-                        if (sanitizedNews.length > 0) {
-                            // 날짜 강제 필터링 (최근 7일)
-                            const filteredNews = sanitizedNews.filter(item => {
-                                try {
-                                    const itemDate = new Date(item.source_date);
-                                    if (isNaN(itemDate.getTime())) return true;
-                                    const diffTime = now.getTime() - itemDate.getTime();
-                                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
-                                    return diffDays <= 7.9; // 7일 제한 (7.9일 버퍼)
-                                } catch (e) {
-                                    return true;
-                                }
-                            });
-                            return filteredNews.length > 0 ? filteredNews : sanitizedNews;
-                        }
-                    }
-                    throw new Error(`대체 응답에서 뉴스 JSON을 파싱하지 못함 (응답 일부: ${jsonText.slice(0, 120)})`);
-                }
+                throw new Error(`검색 응답에서 뉴스 JSON을 파싱하지 못함 (응답 일부: ${jsonText.slice(0, 120)})`);
             }
         } catch (modelErr) {
             console.warn(`Attempt with ${model} (${version}) failed:`, modelErr);
@@ -818,53 +721,23 @@ function generateLocalMockBriefing() {
             "priority_reason": "강원교육 우선순위",
             "status": "CONFIRMED",
             "summary_points": [
-                "강릉교육지원청은 관내 초·중·고교에 배치된 배움터지킴이 80여 명을 대상으로 안전 예방 교육을 마침.",
-                "학교폭력 조기 발견 요령 및 위기 학생 발견 시 즉각적인 대응 시스템 구축 방안이 심도 있게 다뤄짐.",
-                "지원청은 민간 경비 전문 기관과 협업하여 교내 순찰 코스 최적화 및 CCTV 연계 모니터링 기법을 교육함.",
-                "연수 참가자들은 교문 앞 통학로 안전 관리 강화를 최우선 과제로 삼아 예방 활동을 전개하기로 결의함.",
-                "이번 연수는 지역 교육청 주도로 학교 현장의 실무형 안전 역량을 크게 끌어올렸다는 평가를 받음."
+                "강릉교육지원청은 관내 초중고교 배움터지킴이 120명을 대상으로 학교 안전 확보를 위한 직무 연수를 개최함.",
+                "최근 다변화되는 학교 내 외부인 출입 통제 절차 및 학생 생활지도 조력 가이드라인을 심도 있게 전수함.",
+                "학교폭력 예방을 위한 순찰 요령과 아동학대 징후 발견 시 즉각 대처 프로세스에 대한 전문 교육을 병행함.",
+                "원활한 소통을 위해 지킴이 봉사자 간 현장 우수 사례 및 갈등 해결 방안을 토론하는 교류의 시간을 마련함.",
+                "배움터지킴이 활동 지원을 통해 외부 위협요인으로부터 안전하고 건강한 학교 교육환경이 조성될 것으로 기대함."
             ],
-            "impact_rating": 4,
+            "impact_rating": 3,
             "related_fields": ["강원교육", "학교안전", "학교폭력"],
             "source_press": "강원도민일보",
             "source_date": "2026-07-03",
-            "source_link": "https://www.kado.net"
-        },
-        {
-            "id": "mock-news-5",
-            "title": "국회 교육위원회, 디지털 교과서 AI 도입 지원 법안 상임위 통과",
-            "importance": "MEDIUM",
-            "priority_reason": "",
-            "status": "CONFIRMED",
-            "summary_points": [
-                "2026년부터 전국의 학교에 도입될 AI 디지털교과서의 개발 및 인프라 구축 예산 지원법이 상임위를 통과함.",
-                "각 시도교육청의 디지털 격차 완화를 위해 재정이 열악한 농산어촌 학교에 특별교부금이 우선 배정됨.",
-                "현장 교사들은 인공지능 보조도구 사용법 연수 기간 확대 및 네트워크 트래픽 최적화 보장을 법안에 추가 요구함.",
-                "법안에는 학생들의 개인정보 보호 강화를 위해 개인 맞춤형 데이터의 상업적 활용을 엄격히 규제하는 조항이 신설됨.",
-                "이번 법안 통과로 교육부가 추진하는 교실 혁신 사업 및 미래 교육 인프라 예산 지원책이 안정적인 궤도에 오름."
-            ],
-            "impact_rating": 3,
-            "related_fields": ["AI교육", "교육부정책", "법률개정"],
-            "source_press": "동아일보",
-            "source_date": "2026-07-02",
-            "source_link": "https://www.donga.com"
+            "source_link": "http://www.kado.net"
         }
     ];
 
-    const loader = document.getElementById('generation-loader');
-    const btnGenerate = document.getElementById('btn-generate');
-    
-    if (btnGenerate) {
-        btnGenerate.disabled = true;
-        btnGenerate.classList.add('opacity-50', 'cursor-not-allowed');
-    }
-    if (loader) {
-        loader.classList.remove('hidden');
-        document.getElementById('loader-step-text').innerText = "로컬 캐시 데이터베이스 수집 중...";
-        document.getElementById('loader-progress-bar').style.width = "40%";
-    }
-
     setTimeout(() => {
+        const loader = document.getElementById('generation-loader');
+        const btnGenerate = document.getElementById('btn-generate');
         if (loader) {
             document.getElementById('loader-step-text').innerText = "우선순위 정렬 및 요약 통합 중...";
             document.getElementById('loader-progress-bar').style.width = "80%";
@@ -901,6 +774,11 @@ function findBestMatchingUrl(newsTitle, pressName, groundingChunks) {
         const uri = chunk.web?.uri;
         const title = chunk.web?.title;
         if (!uri) continue;
+        
+        // Skip enterprise grounding redirects that block public access
+        if (uri.includes("grounding-api-redirect") || uri.includes("vertexaisearch.cloud.google.com")) {
+            continue;
+        }
         
         const normalizedChunkTitle = normalize(title);
         
@@ -1011,6 +889,7 @@ function sanitizeNewsItems(newsArray) {
     return newsArray.map((item, index) => {
         const id = item.id || `edu-news-${Date.now()}-${index}`;
         const title = item.title || item.subject || "교육 뉴스";
+        const original_title = item.original_title || item.title || item.subject || "보도 원문";
         
         let importance = (item.importance || "LOW").toUpperCase();
         if (importance !== "HIGH" && importance !== "MEDIUM" && importance !== "LOW") {
@@ -1064,7 +943,7 @@ function sanitizeNewsItems(newsArray) {
         const source_link = item.source_link || item.link || `https://www.google.com/search?q=${encodeURIComponent(title)}`;
         
         return {
-            id, title, importance, priority_reason, status,
+            id, title, original_title, importance, priority_reason, status,
             summary_points, impact_rating, related_fields,
             source_press, source_date, source_link
         };
@@ -1086,26 +965,29 @@ function updateCounterBadges() {
     document.getElementById('badge-count-low').innerText = countLow;
 }
 
-function setImportanceFilter(filter) {
-    CURRENT_FILTER_IMPORTANCE = filter;
+function setImportanceFilter(importance) {
+    CURRENT_FILTER_IMPORTANCE = importance;
     
-    ['all', 'high', 'medium', 'low'].forEach(f => {
-        const btn = document.getElementById(`btn-filter-${f}`);
-        if(btn) {
-            btn.classList.remove('bg-slate-900', 'text-white', 'bg-red-50', 'text-red-800', 'border-red-200', 'bg-amber-50', 'text-amber-800', 'border-amber-200', 'bg-yellow-50', 'text-yellow-800', 'border-yellow-200');
+    // Toggle active class representation visually
+    const buttons = {
+        'ALL': 'btn-filter-all',
+        'HIGH': 'btn-filter-high',
+        'MEDIUM': 'btn-filter-medium',
+        'LOW': 'btn-filter-low'
+    };
+    
+    for (const key in buttons) {
+        const btn = document.getElementById(buttons[key]);
+        if (!btn) continue;
+        if (key === importance) {
+            btn.classList.remove('text-slate-600', 'hover:bg-slate-50');
+            btn.classList.add('bg-slate-100', 'text-slate-800', 'font-semibold');
+        } else {
+            btn.classList.remove('bg-slate-100', 'text-slate-800', 'font-semibold');
             btn.classList.add('text-slate-600', 'hover:bg-slate-50');
         }
-    });
-
-    const activeBtn = document.getElementById(`btn-filter-${filter.toLowerCase()}`);
-    if(activeBtn) {
-        activeBtn.classList.remove('text-slate-600', 'hover:bg-slate-50');
-        if (filter === 'ALL') activeBtn.classList.add('bg-slate-900', 'text-white');
-        if (filter === 'HIGH') activeBtn.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
-        if (filter === 'MEDIUM') activeBtn.classList.add('bg-amber-50', 'text-amber-800', 'border-amber-200');
-        if (filter === 'LOW') activeBtn.classList.add('bg-yellow-50', 'text-yellow-800', 'border-yellow-200');
     }
-
+    
     renderAllNews();
 }
 
@@ -1113,94 +995,62 @@ function filterNewsList() {
     renderAllNews();
 }
 
-/* ==========================================
-   STREAMING_CHUNK: Main Feed Card Generator
-   ========================================== */
 function renderAllNews() {
     const feed = document.getElementById('briefing-items-feed');
     const emptyState = document.getElementById('empty-feed-state');
-    const searchQuery = document.getElementById('news-search').value.toLowerCase().trim();
-
-    if(!feed) return;
+    if (!feed) return;
+    
     feed.innerHTML = '';
+    
+    const searchVal = document.getElementById('news-search') ? document.getElementById('news-search').value.trim().toLowerCase() : "";
+    
+    // Sort logic implementation:
+    // 1st Priority: 강원교육 우선순위 (priority_reason === '강원교육 우선순위')
+    // 2nd Priority: 중대 현안(2순위) (priority_reason === '중대 현안(2순위)')
+    // 3rd Priority: Others
+    // Within each priority group, sort by source_date DESC, then impact_rating DESC
+    const sortedNews = [...ALL_NEWS_DATA].sort((a, b) => {
+        const getPriorityWeight = (reason) => {
+            if (reason === "강원교육 우선순위") return 3;
+            if (reason === "중대 현안(2순위)") return 2;
+            return 1;
+        };
 
-    let filteredNews = ALL_NEWS_DATA.filter(item => {
+        const weightA = getPriorityWeight(a.priority_reason);
+        const weightB = getPriorityWeight(b.priority_reason);
+
+        if (weightA !== weightB) {
+            return weightB - weightA; // Higher weight first
+        }
+
+        // Secondary sort: Date descending
+        const dateA = new Date(a.source_date).getTime() || 0;
+        const dateB = new Date(b.source_date).getTime() || 0;
+        if (dateB !== dateA) {
+            return dateB - dateA;
+        }
+
+        // Tertiary sort: School impact rating descending
+        return b.impact_rating - a.impact_rating;
+    });
+
+    const filteredNews = sortedNews.filter(item => {
+        // Importance filter
         if (CURRENT_FILTER_IMPORTANCE !== 'ALL' && item.importance !== CURRENT_FILTER_IMPORTANCE) {
             return false;
         }
-        if (searchQuery) {
-            const matchTitle = item.title.toLowerCase().includes(searchQuery);
-            const matchPress = item.source_press.toLowerCase().includes(searchQuery);
-            const matchSummary = item.summary_points.some(p => p.toLowerCase().includes(searchQuery));
-            const matchFields = item.related_fields.some(f => f.toLowerCase().includes(searchQuery));
-            if (!matchTitle && !matchPress && !matchSummary && !matchFields) {
-                return false;
-            }
-        }
-        return true;
-    });
-
-    // Special Priority Sorting Rule:
-    filteredNews.sort((a, b) => {
-        const getPriorityScore = (item) => {
-            const titleText = (item.title || "").toLowerCase();
-            const pressText = (item.source_press || "").toLowerCase();
-            const summaryText = (item.summary_points || []).join(" ").toLowerCase();
-            const reason = item.priority_reason || "";
-
-            // 1순위: 강원특별자치도교육청 및 산하 지역교육청 뉴스
-            if (reason.includes("강원교육") || reason.includes("강원특별자치도교육청")) {
-                return 3;
-            }
-            const gangwonKeywords = [
-                "강원특별자치도교육청", "강원도교육청", "강원교육청", 
-                "춘천교육지원청", "원주교육지원청", "강릉교육지원청", "속초양양교육지원청",
-                "동해교육지원청", "태백교육지원청", "삼척교육지원청", "홍천교육지원청",
-                "횡성교육지원청", "영월교육지원청", "평창교육지원청", "정선교육지원청",
-                "철원교육지원청", "화천교육지원청", "양구교육지원청", "인제교육지원청",
-                "고성교육지원청", "양양교육지원청"
-            ];
-            if (gangwonKeywords.some(kw => titleText.includes(kw) || summaryText.includes(kw))) {
-                return 3;
-            }
-            if ((titleText.includes("교육청") || summaryText.includes("교육청")) && (pressText.includes("강원일보") || pressText.includes("강원도민일보"))) {
-                return 3;
-            }
-
-            // 2순위: 교원 연금, 정년연장, 교원 정원, 교육부 정책, 법률 개정, 시행령 개정 뉴스
-            if (reason.includes("중대 현안") || reason.includes("2순위")) {
-                return 2;
-            }
-            const primaryKeywords = [
-                "교원 연금", "교원연금", "공무원연금", "정년연장", "정년 연장",
-                "교원 정원", "교원정원", "교육부 정책", "교육부 정책",
-                "법령 개정", "법률 개정", "법령개정", "법률개정", "시행령 개정"
-            ];
-            if (primaryKeywords.some(kw => titleText.includes(kw.toLowerCase()) || summaryText.includes(kw.toLowerCase()))) {
-                return 2;
-            }
-
-            // 3순위 (참고용 기타 주요 교육 키워드)
-            const secondaryKeywords = [
-                "시도교육청 정책", "교원 인사", "임금피크제", "교원 보수",
-                "학교 행정", "학교 안전", "학교폭력", "생활지도",
-                "교육과정", "ai교육", "디지털교과서", "늘봄학교",
-                "초등교육", "국회 교육위원회", "인사혁신처", "공무원 관련 제도"
-            ];
-            if (secondaryKeywords.some(kw => titleText.includes(kw.toLowerCase()) || summaryText.includes(kw.toLowerCase()))) {
-                return 1;
-            }
-
-            return 0;
-        };
-
-        const isPriorityA = getPriorityScore(a);
-        const isPriorityB = getPriorityScore(b);
         
-        if (isPriorityA !== isPriorityB) {
-            return isPriorityB - isPriorityA;
+        // Search filter
+        if (searchVal) {
+            const inTitle = item.title.toLowerCase().includes(searchVal);
+            const inOriginalTitle = (item.original_title || "").toLowerCase().includes(searchVal);
+            const inSummary = item.summary_points.some(p => p.toLowerCase().includes(searchVal));
+            const inPress = item.source_press.toLowerCase().includes(searchVal);
+            const inFields = item.related_fields.some(f => f.toLowerCase().includes(searchVal));
+            return inTitle || inOriginalTitle || inSummary || inPress || inFields;
         }
-        return b.impact_rating - a.impact_rating;
+        
+        return true;
     });
 
     if (filteredNews.length === 0) {
@@ -1300,10 +1150,14 @@ function renderAllNews() {
                 </div>
                 <h3 class="text-base font-bold text-slate-900 leading-snug hover:text-blue-600 transition-colors">
                     <a href="${item.source_link}" target="_blank" class="hover:underline flex items-center gap-1.5">
-                        ${item.title}
+                        ${item.original_title}
                         <i class="fa-solid fa-arrow-up-right-from-square text-xs text-slate-400"></i>
                     </a>
                 </h3>
+                ${item.title && item.title !== item.original_title 
+                    ? `<p class="text-[11px] text-slate-400 font-medium leading-relaxed"><i class="fa-solid fa-square-poll-horizontal text-[10px] mr-1"></i>요약 테마: "${item.title}"</p>` 
+                    : ''
+                }
             </div>
 
             <!-- Core Summary -->
@@ -1344,15 +1198,16 @@ function stopAudio() {
     playingNewsId = null;
     isGlobalPlaying = false;
     
-    const globalBtn = document.getElementById('btn-global-voice');
-    if (globalBtn) {
-        globalBtn.innerHTML = `
+    // Change Global TTS Button text
+    const globalTtsBtn = document.getElementById('btn-global-voice');
+    if (globalTtsBtn) {
+        globalTtsBtn.innerHTML = `
             <i class="fa-solid fa-volume-high text-blue-500"></i>
             <span>전체 뉴스 AI 브리핑 음성 듣기</span>
         `;
-        globalBtn.classList.remove('bg-red-50', 'border-red-200', 'text-red-600');
+        globalTtsBtn.classList.remove('bg-red-50', 'text-red-700', 'border-red-200', 'animate-pulse');
+        globalTtsBtn.classList.add('border-slate-200', 'text-slate-700');
     }
-
     renderAllNews();
 }
 
@@ -1367,30 +1222,18 @@ function playAudioBriefing(newsId) {
         return;
     }
 
-    stopAudio();
+    stopAudio(); // Stop any other playing voices
 
-    const news = ALL_NEWS_DATA.find(n => n.id === newsId);
-    if (!news) return;
+    const item = ALL_NEWS_DATA.find(n => n.id === newsId);
+    if (!item) return;
 
     playingNewsId = newsId;
 
-    let textToRead = `${news.title}. `;
-    textToRead += `뉴스 출처는 ${news.source_press}이며 발행일은 ${news.source_date}입니다. `;
-    textToRead += `주요 요약 내용입니다. `;
-    news.summary_points.forEach((point, idx) => {
-        textToRead += `${idx + 1}번, ${point} `;
-    });
-    if (news.action_items) {
-        textToRead += `학교 관리자를 위한 대처 제안입니다. `;
-        news.action_items.forEach((act, idx) => {
-            textToRead += `${idx + 1}번, ${act} `;
-        });
-    }
+    const speakText = `뉴스 분석 브리핑입니다. 제목. ${item.original_title}. 핵심 내용 요약. ` + item.summary_points.join('. ');
 
-    const utterance = new SpeechSynthesisUtterance(textToRead);
+    const utterance = new SpeechSynthesisUtterance(speakText);
     utterance.lang = 'ko-KR';
     utterance.rate = 1.0;
-    utterance.pitch = 1.0;
 
     utterance.onend = function() {
         if (playingNewsId === newsId) {
@@ -1424,41 +1267,48 @@ function playGlobalAudioBriefing() {
     stopAudio();
 
     if (ALL_NEWS_DATA.length === 0) {
-        showToast("⚠️ 브리핑할 뉴스 데이터가 없습니다.", "error");
+        showToast("⚠️ 브리핑을 재생할 뉴스 정보가 존재하지 않습니다.", "error");
         return;
     }
 
     isGlobalPlaying = true;
-    const globalBtn = document.getElementById('btn-global-voice');
-    if (globalBtn) {
-        globalBtn.innerHTML = `
+    
+    // Change Global TTS button visual indicator
+    const globalTtsBtn = document.getElementById('btn-global-voice');
+    if (globalTtsBtn) {
+        globalTtsBtn.innerHTML = `
             <i class="fa-solid fa-circle-stop text-red-500"></i>
-            <span class="text-red-600 font-bold">브리핑 음성 재생 중단하기</span>
+            <span>음성 브리핑 재생 중단</span>
         `;
-        globalBtn.classList.add('bg-red-50', 'border-red-200', 'text-red-600');
+        globalTtsBtn.classList.remove('border-slate-200', 'text-slate-700');
+        globalTtsBtn.classList.add('bg-red-50', 'text-red-700', 'border-red-200', 'animate-pulse');
     }
 
     let currentIndex = 0;
 
-    function speakNext() {
-        if (!isGlobalPlaying || currentIndex >= ALL_NEWS_DATA.length) {
+    function playNext() {
+        if (!isGlobalPlaying) return;
+
+        if (currentIndex >= ALL_NEWS_DATA.length) {
+            showToast("✨ 전체 뉴스 아침 브리핑 음성 낭독이 완료되었습니다.", "success");
             stopAudio();
             return;
         }
 
-        const news = ALL_NEWS_DATA[currentIndex];
-        let textToRead = `전체 브리핑 중 ${currentIndex + 1}번째 뉴스입니다. ${news.title}. `;
-        news.summary_points.forEach((point) => {
-            textToRead += `${point} `;
-        });
+        const item = ALL_NEWS_DATA[currentIndex];
+        playingNewsId = item.id;
+        renderAllNews();
 
-        const utterance = new SpeechSynthesisUtterance(textToRead);
+        showToast("📢 (" + (currentIndex + 1) + "/" + ALL_NEWS_DATA.length + ") " + item.original_title.slice(0, 25) + "... 낭독 중", "info");
+
+        const speakText = `보도 브리핑 ${currentIndex + 1}번. 제목. ${item.original_title}. 핵심 요약. ` + item.summary_points.join('. ');
+        const utterance = new SpeechSynthesisUtterance(speakText);
         utterance.lang = 'ko-KR';
-        utterance.rate = 1.0;
+        utterance.rate = 1.05;
 
         utterance.onend = function() {
             currentIndex++;
-            speakNext();
+            playNext();
         };
 
         utterance.onerror = function() {
@@ -1469,60 +1319,70 @@ function playGlobalAudioBriefing() {
         window.speechSynthesis.speak(utterance);
     }
 
-    speakNext();
+    playNext();
 }
 
 /* ==========================================
-   STREAMING_CHUNK: Clipboard & Report Export
+   STREAMING_CHUNK: Clipboard & Export System Logic
    ========================================== */
 function copyNewsToClipboard(newsId) {
-    const news = ALL_NEWS_DATA.find(n => n.id === newsId);
-    if (!news) return;
+    const item = ALL_NEWS_DATA.find(n => n.id === newsId);
+    if (!item) return;
 
-    let text = `[오늘의 교육뉴스 브리핑] ${news.title}\n\n`;
-    text += `출처: ${news.source_press} (${news.source_date})\n\n`;
-    text += `■ AI 핵심 요약 브리핑\n`;
-    news.summary_points.forEach(p => {
-        text += `- ${p}\n`;
+    let text = `[교육뉴스 브리핑] ${item.original_title}\n`;
+    text += `- 출처: ${item.source_press} (${item.source_date})\n`;
+    text += `- 학사 영향도: ${"★".repeat(item.impact_rating)}${"☆".repeat(5-item.impact_rating)}\n`;
+    text += `- 주요 현안 분류: ${item.priority_reason || '일반'}\n`;
+    text += `- 상태: ${item.status === 'CONFIRMED' ? '정책 확정' : '검토/심의중'}\n\n`;
+    text += `■ AI 핵심 요약\n`;
+    item.summary_points.forEach((pt, i) => {
+        text += `${i+1}. ${pt}\n`;
     });
+    text += `\n- 원문 링크: ${item.source_link}`;
 
     navigator.clipboard.writeText(text).then(() => {
-        showToast("📋 해당 뉴스 요약이 클립보드에 복사되었습니다.", "success");
-    }).catch(() => {
-        showToast("⚠️ 클립보드 복사에 실패했습니다.", "error");
+        showToast("📋 선택한 뉴스 브리핑 텍스트가 클립보드에 복사되었습니다.", "success");
+    }).catch(err => {
+        showToast("⚠️ 복사에 실패했습니다. 브라우저 권한을 확인하세요.", "error");
     });
 }
 
 function copyBriefingToClipboard() {
     if (ALL_NEWS_DATA.length === 0) {
-        showToast("⚠️ 복사할 브리핑 데이터가 없습니다.", "error");
+        showToast("⚠️ 복사할 뉴스 데이터가 없습니다.", "error");
         return;
     }
 
-    let text = `=========================================\n`;
-    text += ` 오늘의 교육뉴스 아침 정책 브리핑 리포트\n`;
-    text += ` 일자: ${document.getElementById('current-date-text').innerText}\n`;
-    text += `=========================================\n\n`;
+    const todayStr = document.getElementById('current-date-text') ? document.getElementById('current-date-text').innerText : new Date().toLocaleDateString();
+    let text = `★ [행정비서] 교육뉴스 아침 일일 보고 (${todayStr}) ★\n\n`;
 
-    ALL_NEWS_DATA.forEach((news, index) => {
-        text += `${index + 1}. [${news.importance}] ${news.title}\n`;
-        text += `출처: ${news.source_press} (${news.source_date})\n`;
-        text += `AI 핵심 요약 브리핑:\n`;
-        news.summary_points.forEach(p => text += `  - ${p}\n`);
-        text += `-----------------------------------------\n\n`;
+    ALL_NEWS_DATA.forEach((item, idx) => {
+        text += `[${idx + 1}] ${item.original_title}\n`;
+        text += `- 언론사: ${item.source_press} | 발행일: ${item.source_date}\n`;
+        text += `- 중요도 분류: ${item.importance} | 영향도: ${"★".repeat(item.impact_rating)}\n`;
+        text += `- 주요 현안 분류: ${item.priority_reason || '일반'}\n`;
+        text += `- 상태: ${item.status === 'CONFIRMED' ? '정책 확정' : '검토/심의중'}\n`;
+        text += `- AI 요약 브리핑:\n`;
+        item.summary_points.forEach((pt, i) => {
+            text += `  * ${pt}\n`;
+        });
+        text += `- 기사 원문: ${item.source_link}\n\n`;
     });
 
     navigator.clipboard.writeText(text).then(() => {
-        showToast("📋 전체 뉴스 요약 리포트가 클립보드에 복사되었습니다.", "success");
-    }).catch(() => {
-        showToast("⚠️ 클립보드 복사에 실패했습니다.", "error");
+        showToast("📋 전체 일일 뉴스 보고서 텍스트가 클립보드에 복사되었습니다.", "success");
+    }).catch(err => {
+        showToast("⚠️ 복사에 실패했습니다.", "error");
     });
 }
 
 function printBriefingReport() {
+    if (ALL_NEWS_DATA.length === 0) {
+        showToast("⚠️ 인쇄할 뉴스 데이터가 존재하지 않습니다.", "error");
+        return;
+    }
     window.print();
 }
 </script>
-
 </body>
 </html>
