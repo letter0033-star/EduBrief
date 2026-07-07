@@ -441,24 +441,28 @@ async function fetchWithBackoff(url, options, retries = 2, delays = [1500, 3000]
    STREAMING_CHUNK: News Generation Engine (Real Gemini Grounding)
    ========================================== */
 async function generateMorningBriefing() {
-    const inputKey = document.getElementById('api-key-sidebar-input') ? document.getElementById('api-key-sidebar-input').value.trim() : "";
-    const apiKey = inputKey || localStorage.getItem('GEMINI_API_KEY') || "";
-    const loader = document.getElementById('generation-loader');
-    const progressBar = document.getElementById('loader-progress-bar');
-    const loaderText = document.getElementById('loader-step-text');
-    const btnGenerate = document.getElementById('btn-generate');
-
-    btnGenerate.disabled = true;
-    btnGenerate.classList.add('opacity-50', 'cursor-not-allowed');
-    loader.classList.remove('hidden');
-    
-    document.getElementById('secretary-status-pulse').className = "inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse";
-    document.getElementById('secretary-status-text').innerText = "최신 정부 관보 및 교육망 실시간 탐색 중...";
-
-    progressBar.style.width = "20%";
-    loaderText.innerText = "교육부 보도자료 및 국회 뉴스 속기록 실시간 서치 중...";
-
     try {
+        const inputKey = document.getElementById('api-key-sidebar-input') ? document.getElementById('api-key-sidebar-input').value.trim() : "";
+        const apiKey = inputKey || localStorage.getItem('GEMINI_API_KEY') || "";
+        const loader = document.getElementById('generation-loader');
+        const progressBar = document.getElementById('loader-progress-bar');
+        const loaderText = document.getElementById('loader-step-text');
+        const btnGenerate = document.getElementById('btn-generate');
+
+        if (btnGenerate) {
+            btnGenerate.disabled = true;
+            btnGenerate.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+        if (loader) loader.classList.remove('hidden');
+        
+        const statusPulse = document.getElementById('secretary-status-pulse');
+        const statusText = document.getElementById('secretary-status-text');
+        if (statusPulse) statusPulse.className = "inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse";
+        if (statusText) statusText.innerText = "최신 정부 관보 및 교육망 실시간 탐색 중...";
+
+        if (progressBar) progressBar.style.width = "20%";
+        if (loaderText) loaderText.innerText = "교육부 보도자료 및 국회 뉴스 속기록 실시간 서치 중...";
+
         if (!apiKey) {
             const inputField = document.getElementById('api-key-sidebar-input');
             if (inputField) {
@@ -472,8 +476,8 @@ async function generateMorningBriefing() {
         }
 
         const freshData = await fetchRealGeminiData(apiKey, (progress, label) => {
-            progressBar.style.width = `${progress}%`;
-            loaderText.innerText = label;
+            if (progressBar) progressBar.style.width = `${progress}%`;
+            if (loaderText) loaderText.innerText = label;
         });
 
         if (freshData && freshData.length > 0) {
@@ -488,16 +492,25 @@ async function generateMorningBriefing() {
         showToast(`⚠️ 수집 실패 (${err.message || err}): 설정을 확인하고 다시 시도해 주세요.`, "error");
         // Keep the previous cached data on failure so the user doesn't lose their last briefing
     } finally {
-        progressBar.style.width = "100%";
-        loaderText.innerText = "요약 정리 완료! 브리핑 파일을 게시합니다.";
+        const progressBar = document.getElementById('loader-progress-bar');
+        const loaderText = document.getElementById('loader-step-text');
+        const btnGenerate = document.getElementById('btn-generate');
+        const loader = document.getElementById('generation-loader');
+
+        if (progressBar) progressBar.style.width = "100%";
+        if (loaderText) loaderText.innerText = "요약 정리 완료! 브리핑 파일을 게시합니다.";
         await new Promise(r => setTimeout(r, 800));
 
-        btnGenerate.disabled = false;
-        btnGenerate.classList.remove('opacity-50', 'cursor-not-allowed');
-        loader.classList.add('hidden');
+        if (btnGenerate) {
+            btnGenerate.disabled = false;
+            btnGenerate.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+        if (loader) loader.classList.add('hidden');
         
-        document.getElementById('secretary-status-pulse').className = "inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
-        document.getElementById('secretary-status-text').innerText = "행정 비서 실시간 라이브 감시 중";
+        const statusPulse = document.getElementById('secretary-status-pulse');
+        const statusText = document.getElementById('secretary-status-text');
+        if (statusPulse) statusPulse.className = "inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+        if (statusText) statusText.innerText = "행정 비서 실시간 라이브 감시 중";
 
         renderAllNews();
         updateCounterBadges();
@@ -508,14 +521,14 @@ async function generateMorningBriefing() {
    STREAMING_CHUNK: Gemini 2.5 Live Grounding Engine
    ========================================== */
 async function fetchRealGeminiData(apiKey, updateProgressCallback) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-    
-    // Dynamically calculate current time and 7-day (168-hour) cutoff time (KST)
+    const models = ["gemini-2.5-flash", "gemini-1.5-flash"];
+    let lastError = null;
+
     const now = new Date();
     const formattedNow = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
     const cutoffTime = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
     const formattedCutoff = cutoffTime.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-    
+
     const promptText = `현재 시간은 대한민국 표준시(KST)로 ${formattedNow}이다. 대한민국 교육부 정책, 시도교육청 정책, 교원 인사, 교원 정원, 교원 연금, 공무원연금, 정년연장, 임금피크제, 교원 보수, 학교 행정, 학교 안전, 학교폭력, 생활지도, 교육과정, AI교육, 디지털교과서, 늘봄학교, 초등교육, 교육 관련 법률 개정, 국회 교육위원회, 교육부 보도자료, 인사혁신처 발표, 공무원 관련 제도 변화와 관련된 최신 뉴스를 실시간 웹 검색(Google Search)으로 수집하라. 관련성이 다소 낮거나 간접적인 연관성이 있는 교육 뉴스이더라도 다양하고 풍부한 보고서 작성을 위해 반드시 15개 내외(최소 12개, 최대 18개)의 많은 뉴스를 수집하여 작성하라.
     단, 검색 범위는 현재 시간 기준 최근 7일(일주일) 이내(즉, ${formattedCutoff} 이후)에 작성되거나 발행된 뉴스 기사로 엄격히 제한한다. 7일보다 오래된 기사는 수집 목록에서 무조건 제외하라.
     각 기사의 'source_date' 필드(발행일)는 반드시 이 범위 안의 실제 날짜(YYYY-MM-DD)로 작성되어야 한다.
@@ -533,103 +546,86 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     7. 'impact_rating'은 학교 영향도로 1부터 5 사이의 정수로 표기하라.
     8. 실존하는 최신 기사 정보를 기반으로 하되, 출처 언론사('source_press'), 발행일('source_date', YYYY-MM-DD), 원문 링크('source_link')를 포함하라. 단, 'source_link'는 구글 검색 리다이렉트 주소(예: 'google.com/grounding-api-redirect...' 또는 'vertexaisearch.cloud.google.com...')가 아니라, 해당 기사의 실제 원본 언론사 기사 상세 URL(예: 'https://news.kbs.co.kr/news/pc/view/view.do?ncd=...' 또는 'https://www.yna.co.kr/view/AKR...')이어야만 한다.`;
 
-    응답은 반드시 아래의 JSON 스키마를 따르는 JSON 데이터 형태로만 반환해야 하며, 마크다운 코드 블록( \`\`\`json ... \`\`\` ) 안에 넣어라. 다른 인사말이나 설명 텍스트 없이 JSON만 반환하라.
+    const systemInstructionText = "너는 대한민국 학교 관리자(교장, 교감)를 위한 교육 전문 AI 비서이다. 제공된 스키마에 맞춰 최신 교육 뉴스를 실시간 수집, 정제하여 정확한 JSON 객체로 반환하라. 학원 마케팅이나 대학 광고는 엄격히 걸러내라.";
 
-    {
-      "news": [
-        {
-          "id": "문자열 (고유ID, 예: edu-news-1)",
-          "title": "문자열 (뉴스 제목)",
-          "importance": "문자열 ('HIGH', 'MEDIUM', 'LOW' 중 하나)",
-          "priority_reason": "문자열 (최우선 순위 사유 또는 빈 문자열)",
-          "status": "문자열 ('CONFIRMED', 'UNDER_REVIEW' 중 하나)",
-          "summary_points": ["문자열 요약1", "문자열 요약2", "문자열 요약3", "문자열 요약4", "문자열 요약5"],
-          "impact_rating": 정수 (1~5),
-          "related_fields": ["분야1", "분야2", ...],
-          "source_press": "문자열 (언론사명)",
-          "source_date": "문자열 (YYYY-MM-DD)",
-          "source_link": "문자열 (기사 원본 URL)"
-        }
-      ]
-    }`;
+    for (const model of models) {
+        try {
+            updateProgressCallback(30 + models.indexOf(model) * 10, `${model} 모델로 수집 시도 중...`);
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    // Try First with Google Search Grounding Tool
-    try {
-        updateProgressCallback(45, "구글 실시간 검색망 연동 중 (Grounding)...");
-        
-        const payloadWithSearch = {
-            contents: [{ parts: [{ text: promptText }] }],
-            systemInstruction: {
-                parts: [{ text: "너는 대한민국 학교 관리자(교장, 교감)를 위한 교육 전문 AI 비서이다. 제공된 스키마에 맞춰 최신 교육 뉴스를 실시간 수집, 정제하여 정확한 JSON 객체로 반환하라. 학원 마케팅이나 대학 광고는 엄격히 걸러내라." }]
-            },
-            tools: [{ "google_search": {} }]
-        };
+            // Try first with Google Search Grounding Tool
+            try {
+                updateProgressCallback(45, `${model} 실시간 구글 검색망 연동 중...`);
+                
+                const payloadWithSearch = {
+                    contents: [{ parts: [{ text: promptText }] }],
+                    systemInstruction: { parts: [{ text: systemInstructionText }] },
+                    tools: [{ "googleSearch": {} }]
+                };
 
-        const response = await fetchWithBackoff(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payloadWithSearch)
-        }, 2, [1500, 3000]); // Reduced retries for faster response
+                const response = await fetchWithBackoff(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payloadWithSearch)
+                }, 2, [1500, 3000]);
 
-        const result = await response.json();
-        if (result.error) {
-            throw new Error(result.error.message || "API error");
-        }
+                const result = await response.json();
+                if (result.error) {
+                    throw new Error(result.error.message || "API error");
+                }
 
-        const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (jsonText) {
-            const parsed = extractJsonFromString(jsonText);
-            if (parsed && parsed.news) {
-                // Post-process links using grounding metadata to resolve correct direct links
-                const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-                parsed.news.forEach(item => {
-                    // Try to match the article title with actual search grounding chunks to extract the real URL
-                    const matchedUrl = findBestMatchingUrl(item.title, item.source_press, groundingChunks);
-                    if (matchedUrl) {
-                        item.source_link = matchedUrl;
-                    } else {
-                        // Fallback to a direct Google search query for the specific title + press name (highly reliable, no 404s)
-                        item.source_link = `https://www.google.com/search?q=${encodeURIComponent(item.title + ' ' + (item.source_press || ''))}`;
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (jsonText) {
+                    const parsed = extractJsonFromString(jsonText);
+                    if (parsed && parsed.news && parsed.news.length > 0) {
+                        const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+                        parsed.news.forEach(item => {
+                            const matchedUrl = findBestMatchingUrl(item.title, item.source_press, groundingChunks);
+                            if (matchedUrl) {
+                                item.source_link = matchedUrl;
+                            } else {
+                                item.source_link = `https://www.google.com/search?q=${encodeURIComponent(item.title + ' ' + (item.source_press || ''))}`;
+                            }
+                        });
+                        return parsed.news;
                     }
-                });
-                return parsed.news;
-            }
-        }
-    } catch (searchError) {
-        console.warn("Search grounding failed, falling back to standard generation:", searchError);
-        
-        // Dynamic message feedback
-        updateProgressCallback(65, "실시간 수집 지연 감지 - AI 교육 전문지식 기반 생성 중...");
-        
-        const fallbackPrompt = promptText + "\n\n[중요 지시사항: 현재 실시간 웹 검색 도구 로드 한도 초과 또는 일시적 네트워크 장애 상태이므로, 너의 대한민국 교육 정책 지식과 트렌드를 종합하여 2026년 6월 28일 기준의 최신 핵심 교육부 정책 속보 및 학교 행정 공문 뉴스를 15개 작성해 다오. 관련성이 다소 낮거나 간접적인 교육 뉴스이더라도 다양하게 참고할 수 있도록 15개의 리포트를 가득 채워 구성하고, 출처 언론사 및 날짜(최근 7일 이내에 해당하는 2026-06-21 ~ 2026-06-28 사이)도 그럴듯하게 설정하고, 'source_link'는 구글 기사 검색 결과 링크(예: https://www.google.com/search?q=...)로 채워다오.]";
-        
-        const payloadWithoutSearch = {
-            contents: [{ parts: [{ text: fallbackPrompt }] }],
-            systemInstruction: {
-                parts: [{ text: "너는 대한민국 학교 관리자(교장, 교감)를 위한 교육 전문 AI 비서이다. 제공된 스키마에 맞춰 최신 교육 뉴스를 실시간 수집, 정제하여 정확한 JSON 객체로 반환하라. 학원 마케팅이나 대학 광고는 엄격히 걸러내라." }]
-            }
-        };
+                }
+            } catch (searchError) {
+                console.warn(`${model} Grounding failed, trying standard fallback generation:`, searchError);
+                updateProgressCallback(65, `${model} AI 교육 전문지식 기반 생성 중...`);
+                
+                const fallbackPrompt = promptText + "\n\n[중요 지시사항: 현재 실시간 웹 검색 도구 로드 한도 초과 또는 일시적 네트워크 장애 상태이므로, 너의 대한민국 교육 정책 지식과 트렌드를 종합하여 2026년 6월 28일 기준의 최신 핵심 교육부 정책 속보 및 학교 행정 공문 뉴스를 15개 작성해 다오. 관련성이 다소 낮거나 간접적인 교육 뉴스이더라도 다양하게 참고할 수 있도록 15개의 리포트를 가득 채워 구성하고, 출처 언론사 및 날짜(최근 7일 이내에 해당하는 2026-06-21 ~ 2026-06-28 사이)도 그럴듯하게 설정하고, 'source_link'는 구글 기사 검색 결과 링크(예: https://www.google.com/search?q=...)로 채워다오.]";
+                
+                const payloadWithoutSearch = {
+                    contents: [{ parts: [{ text: fallbackPrompt }] }],
+                    systemInstruction: { parts: [{ text: systemInstructionText }] }
+                };
 
-        const response = await fetchWithBackoff(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payloadWithoutSearch)
-        }, 2, [1500, 3000]);
+                const response = await fetchWithBackoff(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payloadWithoutSearch)
+                }, 2, [1500, 3000]);
 
-        const result = await response.json();
-        if (result.error) {
-            throw new Error(result.error.message || "Fallback API error");
-        }
+                const result = await response.json();
+                if (result.error) {
+                    throw new Error(result.error.message || "Fallback API error");
+                }
 
-        const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (jsonText) {
-            const parsed = extractJsonFromString(jsonText);
-            if (parsed && parsed.news) {
-                return parsed.news;
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (jsonText) {
+                    const parsed = extractJsonFromString(jsonText);
+                    if (parsed && parsed.news && parsed.news.length > 0) {
+                        return parsed.news;
+                    }
+                }
             }
+        } catch (modelErr) {
+            console.warn(`Model ${model} execution failed:`, modelErr);
+            lastError = modelErr;
         }
     }
-    return [];
+    throw lastError || new Error("뉴스 정보 수집에 실패했습니다. API 키 충전 여부 및 네트워크 상태를 확인하세요.");
 }
 
 // Resolve news title and press name to the original grounding URL
