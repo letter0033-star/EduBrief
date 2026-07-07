@@ -4,18 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>오늘의 교육뉴스 보고드립니다. - 아침 정책 브리핑</title>
-    <!-- Suppress Tailwind CDN production warning (must run BEFORE the Tailwind script below) -->
-    <script>
-        (function() {
-            const originalWarn = console.warn;
-            console.warn = function(...args) {
-                if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) {
-                    return;
-                }
-                originalWarn.apply(console, args);
-            };
-        })();
-    </script>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts (Inter & Noto Sans KR) -->
@@ -278,6 +266,17 @@
 <!-- Settings Modal Removed as requested -->
 
 <script>
+// Suppress Tailwind CDN production warning in console
+(function() {
+    const originalWarn = console.warn;
+    console.warn = function(...args) {
+        if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) {
+            return;
+        }
+        originalWarn.apply(console, args);
+    };
+})();
+
 // =======================================================================================
 // [CORE CONFIG] Fallback / Default API key removed
 // =======================================================================================
@@ -526,10 +525,9 @@ async function generateMorningBriefing() {
 async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     const attempts = [
         { version: "v1beta", model: "gemini-2.5-flash" },
-        { version: "v1beta", model: "gemini-2.5-flash-lite" }
+        { version: "v1beta", model: "gemini-2.0-flash" }
     ];
     let lastError = null;
-    const attemptErrors = [];
 
     const now = new Date();
     const formattedNow = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
@@ -565,10 +563,47 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
             try {
                 updateProgressCallback(45, `${model} (${version}) 실시간 구글 검색망 연동 중...`);
                 
+                const generationConfig = {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            news: {
+                                type: "ARRAY",
+                                items: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        id: { type: "STRING" },
+                                        title: { type: "STRING" },
+                                        importance: { type: "STRING", enum: ["HIGH", "MEDIUM", "LOW"] },
+                                        priority_reason: { type: "STRING" },
+                                        status: { type: "STRING", enum: ["CONFIRMED", "UNDER_REVIEW"] },
+                                        summary_points: {
+                                            type: "ARRAY",
+                                            items: { type: "STRING" }
+                                        },
+                                        impact_rating: { type: "INTEGER" },
+                                        related_fields: {
+                                            type: "ARRAY",
+                                            items: { type: "STRING" }
+                                        },
+                                        source_press: { type: "STRING" },
+                                        source_date: { type: "STRING" },
+                                        source_link: { type: "STRING" }
+                                    },
+                                    required: ["id", "title", "importance", "priority_reason", "status", "summary_points", "impact_rating", "related_fields", "source_press", "source_date", "source_link"]
+                                }
+                            }
+                        },
+                        required: ["news"]
+                    }
+                };
+
                 const combinedPrompt = `${systemInstructionText}\n\n${promptText}`;
                 const payloadWithSearch = {
                     contents: [{ parts: [{ text: combinedPrompt }] }],
-                    tools: [{ "google_search": {} }]
+                    tools: [{ "google_search": {} }],
+                    generationConfig: generationConfig
                 };
 
                 const response = await fetchWithBackoff(url, {
@@ -584,11 +619,7 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                 if (result.error) {
                     throw new Error(result.error.message || "API error");
                 }
-                if (result.promptFeedback?.blockReason) {
-                    throw new Error(`요청이 안전 필터에 의해 차단됨 (${result.promptFeedback.blockReason})`);
-                }
 
-                const finishReason = result.candidates?.[0]?.finishReason;
                 const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (jsonText) {
                     const parsed = extractJsonFromString(jsonText);
@@ -604,9 +635,7 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                         });
                         return parsed.news;
                     }
-                    throw new Error(`검색 응답에서 뉴스 JSON을 파싱하지 못함 (finishReason: ${finishReason || '알수없음'}, 응답 일부: ${jsonText.slice(0, 120)})`);
                 }
-                throw new Error(`검색 응답에 텍스트 콘텐츠가 없음 (finishReason: ${finishReason || '알수없음'})`);
             } catch (searchError) {
                 const errorStr = String(searchError);
                 // If it is a model not found / API version compatibility issue, skip to next combination immediately
@@ -621,7 +650,8 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                 
                 const combinedFallbackPrompt = `${systemInstructionText}\n\n${fallbackPrompt}`;
                 const payloadWithoutSearch = {
-                    contents: [{ parts: [{ text: combinedFallbackPrompt }] }]
+                    contents: [{ parts: [{ text: combinedFallbackPrompt }] }],
+                    generationConfig: generationConfig
                 };
 
                 const response = await fetchWithBackoff(url, {
@@ -637,29 +667,19 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                 if (result.error) {
                     throw new Error(result.error.message || "Fallback API error");
                 }
-                if (result.promptFeedback?.blockReason) {
-                    throw new Error(`요청이 안전 필터에 의해 차단됨 (${result.promptFeedback.blockReason})`);
-                }
 
-                const fallbackFinishReason = result.candidates?.[0]?.finishReason;
                 const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (jsonText) {
                     const parsed = extractJsonFromString(jsonText);
                     if (parsed && parsed.news && parsed.news.length > 0) {
                         return parsed.news;
                     }
-                    throw new Error(`대체 응답에서 뉴스 JSON을 파싱하지 못함 (finishReason: ${fallbackFinishReason || '알수없음'}, 응답 일부: ${jsonText.slice(0, 120)})`);
                 }
-                throw new Error(`대체 응답에 텍스트 콘텐츠가 없음 (finishReason: ${fallbackFinishReason || '알수없음'})`);
             }
         } catch (modelErr) {
             console.warn(`Attempt with ${model} (${version}) failed:`, modelErr);
             lastError = modelErr;
-            attemptErrors.push(`${model}: ${modelErr.message || modelErr}`);
         }
-    }
-    if (attemptErrors.length > 0) {
-        throw new Error(attemptErrors.join(' / '));
     }
     throw lastError || new Error("뉴스 정보 수집에 실패했습니다. API 키 충전 여부 및 네트워크 상태를 확인하세요.");
 }
