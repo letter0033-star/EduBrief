@@ -521,7 +521,12 @@ async function generateMorningBriefing() {
    STREAMING_CHUNK: Gemini 2.5 Live Grounding Engine
    ========================================== */
 async function fetchRealGeminiData(apiKey, updateProgressCallback) {
-    const models = ["gemini-2.5-flash", "gemini-1.5-flash"];
+    const attempts = [
+        { version: "v1beta", model: "gemini-2.5-flash" },
+        { version: "v1beta", model: "gemini-1.5-flash" },
+        { version: "v1", model: "gemini-1.5-flash" },
+        { version: "v1", model: "gemini-2.5-flash" }
+    ];
     let lastError = null;
 
     const now = new Date();
@@ -548,14 +553,15 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
 
     const systemInstructionText = "너는 대한민국 학교 관리자(교장, 교감)를 위한 교육 전문 AI 비서이다. 제공된 스키마에 맞춰 최신 교육 뉴스를 실시간 수집, 정제하여 정확한 JSON 객체로 반환하라. 학원 마케팅이나 대학 광고는 엄격히 걸러내라.";
 
-    for (const model of models) {
+    for (const attempt of attempts) {
+        const { version, model } = attempt;
         try {
-            updateProgressCallback(30 + models.indexOf(model) * 10, `${model} 모델로 수집 시도 중...`);
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+            updateProgressCallback(30 + attempts.indexOf(attempt) * 15, `${model} (${version}) 모델로 수집 시도 중...`);
+            const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`;
 
             // Try first with Google Search Grounding Tool
             try {
-                updateProgressCallback(45, `${model} 실시간 구글 검색망 연동 중...`);
+                updateProgressCallback(45, `${model} (${version}) 실시간 구글 검색망 연동 중...`);
                 
                 const payloadWithSearch = {
                     contents: [{ parts: [{ text: promptText }] }],
@@ -591,8 +597,14 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                     }
                 }
             } catch (searchError) {
-                console.warn(`${model} Grounding failed, trying standard fallback generation:`, searchError);
-                updateProgressCallback(65, `${model} AI 교육 전문지식 기반 생성 중...`);
+                const errorStr = String(searchError);
+                // If it is a model not found / API version compatibility issue, skip to next combination immediately
+                if (errorStr.includes("not found") || errorStr.includes("404") || errorStr.includes("not supported")) {
+                    throw searchError;
+                }
+
+                console.warn(`${model} (${version}) Grounding failed, trying standard fallback generation:`, searchError);
+                updateProgressCallback(65, `${model} (${version}) AI 교육 전문지식 기반 생성 중...`);
                 
                 const fallbackPrompt = promptText + "\n\n[중요 지시사항: 현재 실시간 웹 검색 도구 로드 한도 초과 또는 일시적 네트워크 장애 상태이므로, 너의 대한민국 교육 정책 지식과 트렌드를 종합하여 2026년 6월 28일 기준의 최신 핵심 교육부 정책 속보 및 학교 행정 공문 뉴스를 15개 작성해 다오. 관련성이 다소 낮거나 간접적인 교육 뉴스이더라도 다양하게 참고할 수 있도록 15개의 리포트를 가득 채워 구성하고, 출처 언론사 및 날짜(최근 7일 이내에 해당하는 2026-06-21 ~ 2026-06-28 사이)도 그럴듯하게 설정하고, 'source_link'는 구글 기사 검색 결과 링크(예: https://www.google.com/search?q=...)로 채워다오.]";
                 
@@ -621,7 +633,7 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
                 }
             }
         } catch (modelErr) {
-            console.warn(`Model ${model} execution failed:`, modelErr);
+            console.warn(`Attempt with ${model} (${version}) failed:`, modelErr);
             lastError = modelErr;
         }
     }
