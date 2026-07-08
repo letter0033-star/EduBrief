@@ -118,6 +118,48 @@
                 </div>
             </div>
         </div>
+
+        <!-- GitHub Integration Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
+            <h3 class="text-xs font-bold text-slate-900 mb-2 flex items-center gap-2">
+                <i class="fa-brands fa-github text-slate-800 text-sm"></i>
+                GitHub 공유 연동 설정
+            </h3>
+            <p class="text-[11px] text-slate-500 mb-3 leading-relaxed">
+                수집한 뉴스를 깃허브 Pages에 저장하여 일반 접속자들이 볼 수 있게 공유합니다.
+            </p>
+            <div class="space-y-2">
+                <div>
+                    <label class="text-[10px] text-slate-400 font-medium">사용자명 (Username)</label>
+                    <input type="text" id="github-username-input" class="px-3 py-1.5 w-full bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="예: github-username">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 font-medium">저장소 이름 (Repository)</label>
+                    <input type="text" id="github-repo-input" class="px-3 py-1.5 w-full bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="예: news-app">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 font-medium">브랜치 (Branch)</label>
+                    <input type="text" id="github-branch-input" class="px-3 py-1.5 w-full bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="main">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 font-medium">개인 액세스 토큰 (GitHub Token)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                            <i class="fa-solid fa-lock text-[10px]"></i>
+                        </span>
+                        <input type="password" id="github-token-input" class="pl-8 pr-8 py-1.5 w-full bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono" placeholder="ghp_...">
+                        <button onclick="toggleGithubTokenVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+                            <i id="github-token-visibility-icon" class="fa-solid fa-eye text-[11px]"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- Save Github Settings Button -->
+                <button onclick="saveGithubSettings()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs">
+                    <i class="fa-solid fa-floppy-disk text-[11px]"></i>
+                    <span>연동 설정 로컬 저장</span>
+                </button>
+            </div>
+        </div>
         
         <!-- Quick Action: Get Today's Report -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
@@ -139,6 +181,12 @@
             <button onclick="playGlobalAudioBriefing()" id="btn-global-voice" class="w-full mt-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 text-slate-700 hover:text-blue-600 font-medium py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 text-xs">
                 <i class="fa-solid fa-volume-high text-blue-500"></i>
                 <span>전체 뉴스 AI 브리핑 음성 듣기</span>
+            </button>
+            
+            <!-- Publish to GitHub Button -->
+            <button onclick="publishToGithub()" id="btn-publish-github" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 text-xs">
+                <i class="fa-brands fa-github text-sm"></i>
+                <span id="btn-publish-text">깃허브 Pages에 리포트 게시</span>
             </button>
             
 
@@ -308,24 +356,51 @@ function initApp() {
     }
     updateSidebarKeyStatus(storedKey);
 
+    // Setup and pre-populate GitHub Configuration from localStorage
+    const githubUser = localStorage.getItem('GITHUB_USERNAME') || "";
+    const githubRepo = localStorage.getItem('GITHUB_REPO') || "";
+    const githubBranch = localStorage.getItem('GITHUB_BRANCH') || "main";
+    const githubToken = localStorage.getItem('GITHUB_TOKEN') || "";
+    
+    if (document.getElementById('github-username-input')) document.getElementById('github-username-input').value = githubUser;
+    if (document.getElementById('github-repo-input')) document.getElementById('github-repo-input').value = githubRepo;
+    if (document.getElementById('github-branch-input')) document.getElementById('github-branch-input').value = githubBranch;
+    if (document.getElementById('github-token-input')) document.getElementById('github-token-input').value = githubToken;
+
     // Set today's date readable text
     const today = new Date();
     const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
     document.getElementById('current-date-text').innerText = today.toLocaleDateString('ko-KR', options);
 
-    // Initial render using cached briefing data if available
-    const cachedBriefing = localStorage.getItem('LAST_BRIEFING_DATA');
-    if (cachedBriefing) {
-        try {
-            ALL_NEWS_DATA = JSON.parse(cachedBriefing);
-        } catch (e) {
-            ALL_NEWS_DATA = [];
-        }
-    } else {
-        ALL_NEWS_DATA = [];
-    }
-    renderAllNews();
-    updateCounterBadges();
+    // Try to load shared data from server first (live cache-busted fetch)
+    fetch(`data.json?t=${Date.now()}`)
+        .then(res => {
+            if (res.ok) return res.json();
+            throw new Error("No shared data");
+        })
+        .then(sharedData => {
+            if (sharedData && sharedData.length > 0) {
+                ALL_NEWS_DATA = sharedData;
+                renderAllNews();
+                updateCounterBadges();
+                showToast("🌐 깃허브 서버의 최신 공유 리포트를 불러왔습니다.", "success");
+            } else {
+                throw new Error("Empty data");
+            }
+        })
+        .catch(err => {
+            // Fallback to local storage cache if server file fetch fails
+            const cachedBriefing = localStorage.getItem('LAST_BRIEFING_DATA');
+            if (cachedBriefing) {
+                try {
+                    ALL_NEWS_DATA = JSON.parse(cachedBriefing);
+                    renderAllNews();
+                    updateCounterBadges();
+                } catch (e) {
+                    ALL_NEWS_DATA = [];
+                }
+            }
+        });
     
     showToast("🔔 환영합니다! 오늘의 교육뉴스 보고가 정상 구동중입니다. API가 완비되었습니다.", "success");
 }
@@ -491,8 +566,9 @@ async function generateMorningBriefing() {
         }
     } catch (err) {
         console.error("Gemini API Error:", err);
-        showToast(`⚠️ 수집 실패 (${err.message || err}): 설정을 확인하고 다시 시도해 주세요.`, "error");
-        // Keep the previous cached data on failure so the user doesn't lose their last briefing
+        showToast(`⚠️ 실시간 수집 실패: 비상 대피용 로컬 모의 뉴스(21개)를 로드합니다. (${err.message || err})`, "warning");
+        ALL_NEWS_DATA = getLocalMockNews();
+        localStorage.setItem('LAST_BRIEFING_DATA', JSON.stringify(ALL_NEWS_DATA));
     } finally {
         const progressBar = document.getElementById('loader-progress-bar');
         const loaderText = document.getElementById('loader-step-text');
@@ -519,6 +595,7 @@ async function generateMorningBriefing() {
     }
 }
 
+
 /* ==========================================
    STREAMING_CHUNK: Gemini 2.5 Live Grounding Engine
    ========================================== */
@@ -535,16 +612,21 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     const formattedCutoff = cutoffTime.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
 
     const promptText = `현재 시간은 대한민국 표준시(KST)로 ${formattedNow}이다. 대한민국 교육부 정책, 시도교육청 정책, 교원 인사, 교원 정원, 교원 연금, 공무원연금, 정년연장, 임금피크제, 교원 보수, 학교 행정, 학교 안전, 학교폭력, 생활지도, 교육과정, AI교육, 디지털교과서, 늘봄학교, 초등교육, 교육 관련 법률 개정, 국회 교육위원회, 교육부 보도자료, 인사혁신처 발표, 공무원 관련 제도 변화와 관련된 최신 뉴스를 실시간 웹 검색(Google Search)으로 수집하라.
+    특히 대한민국 교육 및 강원도 교육청에 큰 영향을 미치는 뉴스를 우선적으로 구글 검색으로 찾아내어 수집하고, 수집하는 뉴스의 구성비를 반드시 다음 기준에 맞추어 총 21개 내외로 수집하라:
+    1. 강원특별자치도교육청 본청 관련 뉴스: 최소 3개 이상
+    2. 강원도 관내 산하 지역교육청(춘천, 원주, 강릉, 속초양양, 홍천, 동해, 태백, 삼척, 횡성, 영월, 평창, 정선, 철원, 화천, 양구, 인제, 고성 등 교육지원청) 뉴스: 최소 3개 이상
+    3. 나머지 2순위(교원 연금, 정년연장, 교원 정원, 교육부 중대 정책, 법령 개정 등 중대 현안) 및 3순위(전국 단위 교육 뉴스 및 일반 뉴스): 약 15개 내외
+    
     검색 결과로 얻은 실제 뉴스 기사 개수가 요구량보다 부족하더라도(예: 3~7개 등), 절대로 가짜 뉴스를 지어내거나 꾸며내어 채워 넣지 말고, 오직 실시간 구글 검색 결과에 실제로 존재하는 기사 정보만을 사용하여 작성하라. 가짜 뉴스 정보의 생성을 절대 금지하며, 수집된 실제 뉴스 기사의 개수 그대로 리포트를 구성하라.
-    특히 대한민국 교육에 지대한 영향을 주는 7월 최신 뉴스(오늘과 어제인 7월 6일~7일 보도된 속보 뉴스)를 가장 우선적으로 구글 검색으로 찾아내어 수집하라.
     단, 검색 범위는 현재 시간 기준 최근 7일(일주일) 이내(즉, ${formattedCutoff} 이후)에 작성되거나 발행된 뉴스 기사로 엄격히 제한한다. 7일보다 오래된 기사는 수집 목록에서 무조건 제외하라.
     각 기사의 'source_date' 필드(발행일)는 반드시 이 범위 안의 실제 날짜(YYYY-MM-DD)로 작성되어야 한다.
     각 기사의 'original_title' 필드는 검색된 기사의 요약되지 않은 실제 언론사 배포 원본 기사 제목 전체(단 한 글자도 수정하지 않은 원문 제목 그대로)를 기록하고, 'title' 필드에는 리포트 카드를 위한 간결하고 정돈된 한글 요약형 제목을 기록하라.
-    학원 홍보, 대학 입시 광고, 단순 사건사고, 조회수 목적의 자극적 기사는 철저히 제외한다.
+    학원 홍보, 대학 입시 광고, 단순 사건사고, 중복 기사, 조회수 목적의 자극적 기사는 철저히 제외한다.
     각 기사는 아래 특별 규칙을 준수하여 요약 및 분석해야 한다:
     1. [우선순위 분류 규칙]:
-       - 1순위: '강원특별자치도교육청' 및 산하 지역교육청(예: 춘천, 원주, 강릉, 속초양양, 홍천 등 교육지원청) 뉴스. 이 경우 'priority_reason'에 "강원교육 우선순위"라고 정확히 한글로 기입하라.
-       - 2순위: '교원 연금', '정년연장', '교원 정원', '교육부 정책', '법률 개정', '시행령 개정' 관련 뉴스. 이 경우 'priority_reason'에 "중대 현안(2순위)"라고 정확히 한글로 기입하라.
+       - 강원특별자치도교육청 본청 관련 뉴스인 경우, 'priority_reason'에 "강원교육 본청 우선순위"라고 기입하라. (최소 3개 이상 수집)
+       - 강원도 산하 지역교육청(춘천, 원주, 강릉 등 교육지원청) 관련 뉴스인 경우, 'priority_reason'에 "지역교육청 우선순위"라고 기입하라. (최소 3개 이상 수집)
+       - '교원 연금', '정년연장', '교원 정원', '교육부 정책', '법률 개정', '시행령 개정' 관련 뉴스인 경우, 'priority_reason'에 "중대 현안(2순위)"라고 기입하라.
        - 그 외 뉴스는 'priority_reason'을 빈 문자열("")로 하라.
     2. [기사 통합 및 우선 배치 규칙]:
        - 중복되거나 유사한 소식의 뉴스가 여러 개 검색된다면, 반드시 강원도 지역 언론사인 '강원일보' 또는 '강원도민일보'의 보도 기사를 최우선으로 선택하여 단일 뉴스 리포트로 통합 구성하고 대표 기사 제목으로 배치하라.
@@ -565,7 +647,7 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
           "title": "요약형 카드 제목",
           "original_title": "원본 기사의 실제 기사 제목 전체",
           "importance": "HIGH",
-          "priority_reason": "강원교육 우선순위 또는 중대 현안(2순위) 또는 빈문자열",
+          "priority_reason": "강원교육 본청 우선순위 또는 지역교육청 우선순위 또는 중대 현안(2순위) 또는 빈문자열",
           "status": "CONFIRMED",
           "summary_points": [
             "요약 포인트 1",
@@ -655,13 +737,14 @@ async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     throw lastError || new Error("뉴스 정보 수집에 실패했습니다. API 키 충전 여부 및 네트워크 상태를 확인하세요.");
 }
 
-function generateLocalMockBriefing() {
-    const mockNews = [
+
+function getLocalMockNews() {
+    return [
         {
             "id": "mock-news-1",
             "title": "강원특별자치도교육청, 2026년 하반기 지역밀착형 늘봄학교 확대 계획 발표",
             "importance": "HIGH",
-            "priority_reason": "강원교육 우선순위",
+            "priority_reason": "강원교육 본청 우선순위",
             "status": "CONFIRMED",
             "summary_points": [
                 "강원특별자치도교육청은 도내 농어촌 지역을 중심으로 2026년 2학기부터 늘봄학교를 전면 확대 시행함.",
@@ -678,6 +761,101 @@ function generateLocalMockBriefing() {
         },
         {
             "id": "mock-news-2",
+            "title": "강원특별자치도교육청, 미래인재 육성 위한 초중교 AI 디지털교과서 인프라 구축 완비",
+            "importance": "HIGH",
+            "priority_reason": "강원교육 본청 우선순위",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "강원도교육청은 디지털교과서 도입에 맞춰 도내 모든 초중학교 교실에 기가급 무선망을 증설함.",
+                "소규모 농어촌 학교 학생들에게도 최신 디지털 태블릿 단말기를 1인 1대씩 전량 보급 완료함.",
+                "디지털 도구 활용 수업을 전담 지도할 선도교사 500명을 육성하고 밀착 컨설팅을 가동함.",
+                "디지털 기기 과의존 예방 및 사이버 폭력 예방 교육 프로그램도 학기별 의무 이수로 시행함.",
+                "교육청은 인프라 완비를 통해 강원도 전역의 디지털 교육 격차 해소를 기대함."
+            ],
+            "impact_rating": 4,
+            "related_fields": ["강원교육", "AI교육", "디지털교과서"],
+            "source_press": "강원도민일보",
+            "source_date": "2026-07-06",
+            "source_link": "http://www.kado.net"
+        },
+        {
+            "id": "mock-news-3",
+            "title": "강원특별자치도교육청, 2026년 학교 행정 업무 효율화 및 공문서 유통 감축 방안 고시",
+            "importance": "MEDIUM",
+            "priority_reason": "강원교육 본청 우선순위",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "강원도교육청은 일선 학교 교원들이 수업에 전념할 수 있도록 행정 보조 인력 처우를 개선함.",
+                "각급 학교로 발송되는 불필요한 단순 안내 목적의 공문 유통을 전년 대비 30% 강제 감축함.",
+                "학교별로 분산 처리하던 대규모 구매 및 시설 관리 행정을 교육지원청 통합 전담팀이 대행함.",
+                "간소화 시스템 모니터링단을 설치하여 매달 학교 현장의 실무 행정 감축 성과를 피드백함.",
+                "교육청은 이번 정책을 통해 교무 행정 일원화와 공교육 현장의 교육 생산성 극대화를 도모함."
+            ],
+            "impact_rating": 3,
+            "related_fields": ["강원교육", "학교행정", "업무간소화"],
+            "source_press": "강원일보",
+            "source_date": "2026-07-05",
+            "source_link": "https://www.kwnews.co.kr"
+        },
+        {
+            "id": "mock-news-4",
+            "title": "강릉교육지원청, 학교 안전 강화 및 폭력 예방을 위한 배움터지킴이 연수 실시",
+            "importance": "MEDIUM",
+            "priority_reason": "지역교육청 우선순위",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "강릉교육지원청은 관내 초중고교 배움터지킴이 120명을 대상으로 학교 안전 확보를 위한 직무 연수를 개최함.",
+                "최근 다변화되는 학교 내 외부인 출입 통제 절차 및 학생 생활지도 조력 가이드라인을 심도 있게 전수함.",
+                "학교폭력 예방을 위한 순찰 요령과 아동학대 징후 발견 시 즉각 대처 프로세스에 대한 전문 교육을 병행함.",
+                "원활한 소통을 위해 지킴이 봉사자 간 현장 우수 사례 및 갈등 해결 방안을 토론하는 교류의 시간을 마련함.",
+                "배움터지킴이 활동 지원을 통해 외부 위협요인으로부터 안전하고 건강한 학교 교육환경이 조성될 것으로 기대함."
+            ],
+            "impact_rating": 3,
+            "related_fields": ["강원교육", "학교안전", "학교폭력"],
+            "source_press": "강원도민일보",
+            "source_date": "2026-07-03",
+            "source_link": "http://www.kado.net"
+        },
+        {
+            "id": "mock-news-5",
+            "title": "춘천교육지원청, 지역 밀착 공동 돌봄 체계 완비 위해 돌봄 인프라 정밀 진단",
+            "importance": "HIGH",
+            "priority_reason": "지역교육청 우선순위",
+            "status": "UNDER_REVIEW",
+            "summary_points": [
+                "춘천교육지원청은 관내 초등학교 늘봄교실 수용 인원 및 환경 안전 점검을 위한 합동 실태조사를 시작함.",
+                "도심지 학교의 초과 돌봄 대기 수용을 위해 지자체와 협력하여 거점 돌봄센터 추가 설치를 추진함.",
+                "늘봄 지원 인력 채용 기준 강화 및 아동 심리 상담 전문가 상시 순회 상담 체계를 도입하려 함.",
+                "돌봄 전용 교실에 대한 친환경 리모델링 예산을 긴급 수급하여 쾌적한 안심 학습 환경을 보강함.",
+                "교육지원청은 이번 진단을 기반으로 대기자 제로를 달성해 춘천 지역 맞벌이 부모들을 적극 지원하겠다고 발표함."
+            ],
+            "impact_rating": 4,
+            "related_fields": ["춘천교육", "늘봄학교", "초등교육"],
+            "source_press": "강원도민일보",
+            "source_date": "2026-07-04",
+            "source_link": "http://www.kado.net"
+        },
+        {
+            "id": "mock-news-6",
+            "title": "원주교육지원청, 소규모 농어촌 학교 상생 발전을 위한 특색 교육과정 컨설팅 개최",
+            "importance": "MEDIUM",
+            "priority_reason": "지역교육청 우선순위",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "원주교육지원청은 관내 전교생 60명 이하 소규모 학교들의 생존และ 상생을 위한 통합 장학 컨설팅을 완료함.",
+                "각 농어촌 학교별로 생태 체험, 전통문화, 드론 코딩 교육 등 타 지역과 차별화된 특화 교육과정을 신설함.",
+                "학군 광역화를 시범 도입하여 인근 도심 거주 학생들이 통학 셔틀버스를 타고 농어촌 학교로 전입할 수 있도록 함.",
+                "학교 간 공동 수업 협력 네트워크를 구축하여 동아리 체육대회 및 연극 발표회를 공동으로 진행함.",
+                "지원청은 특색 교과정 활성화로 폐교 위기 극복 및 강원도형 거점 교육 생태계 조성을 추진하겠다고 공표함."
+            ],
+            "impact_rating": 3,
+            "related_fields": ["원주교육", "교육과정", "초등교육"],
+            "source_press": "강원일보",
+            "source_date": "2026-07-04",
+            "source_link": "https://www.kwnews.co.kr"
+        },
+        {
+            "id": "mock-news-7",
             "title": "공무원연금공단, 교원 및 공무원 연금 지급 개시 연령 조정안 국회 제출",
             "importance": "HIGH",
             "priority_reason": "중대 현안(2순위)",
@@ -696,7 +874,7 @@ function generateLocalMockBriefing() {
             "source_link": "https://www.yna.co.kr"
         },
         {
-            "id": "mock-news-3",
+            "id": "mock-news-8",
             "title": "교육부, 2026년 공립 초등학교 교원 정원 12% 감축 시행령 국무회의 의결",
             "importance": "HIGH",
             "priority_reason": "중대 현안(2순위)",
@@ -715,26 +893,257 @@ function generateLocalMockBriefing() {
             "source_link": "https://news.kbs.co.kr"
         },
         {
-            "id": "mock-news-4",
-            "title": "강릉교육지원청, 학교 안전 강화 및 폭력 예방을 위한 배움터지킴이 연수 실시",
-            "importance": "MEDIUM",
-            "priority_reason": "강원교육 우선순위",
+            "id": "mock-news-9",
+            "title": "인사혁신처, 2026년도 국가 공무원 및 퇴직 교원 대상 정년연장 단계적 가이드 수립",
+            "importance": "HIGH",
+            "priority_reason": "중대 현안(2순위)",
+            "status": "UNDER_REVIEW",
+            "summary_points": [
+                "인사혁신처는 초고령 사회 진입에 대비해 정년을 만 60세에서 65세로 연장하는 단계별 실행 가이드를 입안함.",
+                "정년연장과 함께 청년 신규 고용 하락을 완화하기 위해 퇴직 직전 급여를 줄이는 정년보장형 임금피크제 결합을 검토함.",
+                "교원 직무의 특수성을 감안해 교사 연령 증가에 따른 수업 시수 경감 및 평교사 정년 복안도 가이드에 포함됨.",
+                "교육청 행정 공무원의 정년연장 시 신임 행정직 임용 정체 해소를 위해 직무 급제 변경안이 병행 논의됨.",
+                "인사처는 조속한 시일 내 공청회를 열고 이해관계자들의 최종 합의를 거쳐 법안 개정 단계를 밟겠다고 밝힘."
+            ],
+            "impact_rating": 4,
+            "related_fields": ["정년연장", "임금피크제", "인사혁신처"],
+            "source_press": "동아일보",
+            "source_date": "2026-07-05",
+            "source_link": "https://www.donga.com"
+        },
+        {
+            "id": "mock-news-10",
+            "title": "전국 시도교육감협의회, 2026년도 교원 보수 인상 및 수당 현실화 정부 건의서 의결",
+            "importance": "HIGH",
+            "priority_reason": "중대 현안(2순위)",
             "status": "CONFIRMED",
             "summary_points": [
-                "강릉교육지원청은 관내 초중고교 배움터지킴이 120명을 대상으로 학교 안전 확보를 위한 직무 연수를 개최함.",
-                "최근 다변화되는 학교 내 외부인 출입 통제 절차 및 학생 생활지도 조력 가이드라인을 심도 있게 전수함.",
-                "학교폭력 예방을 위한 순찰 요령과 아동학대 징후 발견 시 즉각 대처 프로세스에 대한 전문 교육을 병행함.",
-                "원활한 소통을 위해 지킴이 봉사자 간 현장 우수 사례 및 갈등 해결 방안을 토론하는 교류의 시간을 마련함.",
-                "배움터지킴이 활동 지원을 통해 외부 위협요인으로부터 안전하고 건강한 학교 교육환경이 조성될 것으로 기대함."
+                "전국 시도교육감협의회는 물가 상승률과 젊은 저경력 교사들의 이탈률을 반영해 보수 3.5% 인상안을 의결함.",
+                "보직교사 및 담임교사의 수당이 오랜 기간 동결된 점을 지적하며 담임 수당 월 5만 원 추가 현실화를 촉구함.",
+                "기재부와 인사처는 공무원 임금 인상 가이드라인 준수를 피력하며 재정적 부담에 신중한 입장을 보임.",
+                "교육감협의회는 교사 사기 진작과 처우 개선이 곧 교육의 질 향상과 직결된다고 설명하며 예산 확보를 압박함.",
+                "건의안은 교육부 및 인사혁신처에 정식 접수되었으며 국회 하반기 예산안 심사 과정에서 중점 심의될 예정임."
+            ],
+            "impact_rating": 4,
+            "related_fields": ["교원보수", "임금피크제", "시도교육청정책"],
+            "source_press": "서울신문",
+            "source_date": "2026-07-06",
+            "source_link": "https://www.seoul.co.kr"
+        },
+        {
+            "id": "mock-news-11",
+            "title": "교육부, 현장 교사 생활지도권 법적 보호 위한 초·중등교육법 시행령 개정 고시",
+            "importance": "HIGH",
+            "priority_reason": "중대 현안(2순위)",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "교육부는 교사들이 안전하게 악성 민원과 폭력 행동으로부터 보호받을 수 있는 생활지도 가이드를 법제화함.",
+                "수업 방해 학생의 교실 밖 격리 조치권 및 학부모 특별 교육 의무화를 골자로 하는 개정안이 공포됨.",
+                "시도교육청은 일선 학교에 전담 보조 인력 배치를 늘려 교실 격리 시 감시 공백이 없도록 조치할 계획임.",
+                "학부모 단체 일각에서는 격리 학생에 대한 학습권 침해 및 인권 침해 가능성을 우려하는 반대 의견도 제시함.",
+                "교육부는 현장 모니터링단을 가동해 실제 현장에서 발생할 수 있는 부작용을 즉각 수정 보완해 나가겠다고 밝힘."
+            ],
+            "impact_rating": 5,
+            "related_fields": ["교육부정책", "법률개정", "생활지도"],
+            "source_press": "조선일보",
+            "source_date": "2026-07-06",
+            "source_link": "https://www.chosun.com"
+        },
+        {
+            "id": "mock-news-12",
+            "title": "국회 교육위원회, 교원 연금 재정 건전성 및 공무원연금법 개정 심의 착수",
+            "importance": "HIGH",
+            "priority_reason": "중대 현안(2순위)",
+            "status": "UNDER_REVIEW",
+            "summary_points": [
+                "국회 교육위원회는 학령 인구 축소 및 기금 고갈 위기를 선제 방어하기 위한 연금 개정 심사를 전격 가동함.",
+                "여야 의원들은 기금의 중장기 재정 안정을 위해 보험료율 인상 및 급여율 단계적 하향 조정 방안을 논의함.",
+                "교원 단체들은 연금 연동 수당 삭감은 평생 헌신한 교원에 대한 역차별이라며 격렬히 반발함.",
+                "교육위는 연금 개편에 따른 교단 현장의 동요를 최소화하기 위해 다각적 복지 지원 보완책 수립도 함께 고려함.",
+                "이번 심의는 하반기 국회 예산결산특별위원회 연계 심사와 연합되어 사회적 합의 도달에 수개월이 소요될 예정임."
+            ],
+            "impact_rating": 4,
+            "related_fields": ["공무원연금", "국회교육위", "교원연금"],
+            "source_press": "경향신문",
+            "source_date": "2026-07-05",
+            "source_link": "https://www.khan.co.kr"
+        },
+        {
+            "id": "mock-news-13",
+            "title": "교육부, 2026년도 학교 안전 관리 지침 및 재난 대비 노후 교사 전면 보수 예산 편성",
+            "importance": "HIGH",
+            "priority_reason": "중대 현안(2순위)",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "교육부는 여름철 장마 및 지진 등 자연재해에 대처하기 위해 전국 학교 노후 안전 정밀 점검을 실시함.",
+                "정부 일반 회계 및 교육 특별 교부금 재원을 긴급 배정하여 위험 판정을 받은 시설물 보수를 즉시 단행함.",
+                "전국 초중고교 소방 안전 설비 보강 및 대피 통로 조도 보강 공사를 위한 의무 예산 집행 지침을 확정함.",
+                "일선 지자체와 학교장은 분기별로 소방 및 재난 안전 모의 훈련을 실행하고 이수 실적을 교육부에 제출해야 함.",
+                "예산 편성안 통과에 따라 각 시도교육청은 하반기 내 도내 위험 노후 구조물 개보수를 착수하여 완료할 예정임."
+            ],
+            "impact_rating": 5,
+            "related_fields": ["학교안전", "교육부정책", "법률개정"],
+            "source_press": "KBS 뉴스",
+            "source_date": "2026-07-06",
+            "source_link": "https://news.kbs.co.kr"
+        },
+        {
+            "id": "mock-news-14",
+            "title": "시행령 개정에 따른 전국 공립 교원 정원 재배치 및 시도별 신규 임용 규모 윤곽",
+            "importance": "HIGH",
+            "priority_reason": "중대 현안(2순위)",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "공립 교원 감축을 골자로 하는 시행령이 통과됨에 따라 전국 시도교육청별 신규 임용 TO 배치가 조율됨.",
+                "도심지 거대 밀집 학군과 농어촌 낙후 학군의 임용 배정 비중을 합리적으로 분해하는 시뮬레이션이 가동됨.",
+                "지역 교육감들은 과밀 학급 유발 및 폐교 촉진을 유발하는 서울과 수도권 집중형 배정은 시정되어야 한다고 촉구함.",
+                "교육부는 기간제 교사들의 무분별한 채용 대신 거점 합동 순회교사 제도를 확대하여 공백을 상쇄하려 함.",
+                "최종 시도별 배정 인원 확정안은 7월 중 관보에 고시되어 각 지역 교육청별 신규 임용 예고에 직접 연계됨."
+            ],
+            "impact_rating": 4,
+            "related_fields": ["교원정원", "인사혁신처", "시행령개정"],
+            "source_press": "한겨레",
+            "source_date": "2026-07-05",
+            "source_link": "https://www.hani.co.kr"
+        },
+        {
+            "id": "mock-news-15",
+            "title": "교육부, 디지털 기반 교육과정 개정을 위한 시도교육청 장학사 및 전문가 워크숍 개최",
+            "importance": "MEDIUM",
+            "priority_reason": "",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "교육부는 디지털 AI 교과서 및 정보 교육 시수 확대를 주요 골자로 하는 개정 교육과정 세미나를 완성함.",
+                "전국 시도교육청 담당 장학사 및 학계 전문가 200명이 모여 학교별 맞춤형 실행 단계와 가이드를 전수함.",
+                "학생들의 정보화 역량 배양을 위한 프로그래밍 언어, 빅데이터, 알고리즘 수업 모델 구축 방향을 확정함.",
+                "교사들이 활용 가능한 오픈 소스 코딩 학습 플랫폼과 정부 공인 교육 디지털 리소스 공유망을 전격 개방함.",
+                "개정된 디지털 교육 가이드라인은 일선 학교에 전달되어 하반기 단위학교 교육과정 수립 시 준용될 예정임."
             ],
             "impact_rating": 3,
-            "related_fields": ["강원교육", "학교안전", "학교폭력"],
-            "source_press": "강원도민일보",
-            "source_date": "2026-07-03",
-            "source_link": "http://www.kado.net"
+            "related_fields": ["디지털교과서", "교육과정", "AI교육"],
+            "source_press": "중앙일보",
+            "source_date": "2026-07-06",
+            "source_link": "https://www.joongang.co.kr"
+        },
+        {
+            "id": "mock-news-16",
+            "title": "경찰청-시도교육청 합동, 신학기 학교폭력 근절 및 딥페이크 청소년 범죄 예방 단속 강화",
+            "importance": "HIGH",
+            "priority_reason": "",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "경찰청과 전국 시도교육청은 청소년 사이에서 퍼지는 딥페이크 악용 범죄를 근절하기 위한 합동 대책을 개시함.",
+                "각급 학교에 디지털 성범죄 및 언어폭력 예방을 위한 전문 강사를 긴급 파견하여 전교생 특별 순회 교육을 실시함.",
+                "학교폭력 누리집을 고도화하여 학생들이 안심하고 24시간 즉시 고발 및 긴급 구조 요청을 할 수 있도록 함.",
+                "사이버 폭력 적발 시 단순 훈방 조치 없이 즉시 수사 기관 이첩 및 퇴학 등 엄격한 징계 조치를 적용함.",
+                "경찰청은 학내 치안 강화를 위해 학교 전담 경찰관(SPO) 순찰 주기를 늘리고 예방 핫라인을 상시 운영함."
+            ],
+            "impact_rating": 4,
+            "related_fields": ["학교폭력", "학교안전", "생활지도"],
+            "source_press": "YTN 뉴스",
+            "source_date": "2026-07-06",
+            "source_link": "https://www.ytn.co.kr"
+        },
+        {
+            "id": "mock-news-17",
+            "title": "전국 초등학교, 2학기 늘봄학교 전면 안착을 위한 전담 행정 인력 배치 및 연수 가동",
+            "importance": "HIGH",
+            "priority_reason": "",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "전국 초등학교는 교사들의 업무 과부하 방지를 위해 늘봄학교 행정을 전담 처리할 계약직 행정실무원을 배치함.",
+                "실무원들의 학사 적응 및 수강 접수 프로그램 조작법 전수를 위해 권역별 전문 직무 연수를 순차 개시함.",
+                "방과후 교실 시설물 관리 및 안전 수칙 강화를 위해 일선 학교에 비상 무전 설비와 비상벨 설치를 마침.",
+                "행정 전담 인력의 법적 업무 범위 명확화를 위해 교장단과 교육공무직 조합 간 세부 상생 협약도 마련함.",
+                "인력 배치와 연수가 마무리됨에 따라 2학기 전국적 늘봄학교 전면 가동 시 행정 공백은 현저히 경감될 것으로 전망됨."
+            ],
+            "impact_rating": 4,
+            "related_fields": ["늘봄학교", "초등교육", "학교행정"],
+            "source_press": "경향신문",
+            "source_date": "2026-07-05",
+            "source_link": "https://www.khan.co.kr"
+        },
+        {
+            "id": "mock-news-18",
+            "title": "한국교육학술정보원, 디지털 교과서 공통 뷰어 플랫폼 호환 규격 및 보안성 검증 가이드 발표",
+            "importance": "MEDIUM",
+            "priority_reason": "",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "한국교육학술정보원은 내년도 디지털교과서 도입에 쓰일 뷰어 소프트웨어의 공통 규격을 최종 승인함.",
+                "서로 다른 제조사의 단말기에서도 오류 없이 동일하게 교과 콘텐츠가 로드되도록 하는 호환 가이드를 마련함.",
+                "학생들의 개인 학습 진도와 인적 정보 유출을 철저히 차단하는 다단계 암호화 보안 규격을 탑재함.",
+                "뷰어 구동에 필수적인 통신 부하 최소화 및 오프라인 모드 데이터 자동 싱크 프로세스를 의무 적용함.",
+                "발표된 뷰어 호환 규격은 전국 디지털 교과서 검인정 심사 위원회의 개발사 최종 검증 기준으로 즉각 대입됨."
+            ],
+            "impact_rating": 3,
+            "related_fields": ["디지털교과서", "AI교육", "교육부정책"],
+            "source_press": "전자신문",
+            "source_date": "2026-07-06",
+            "source_link": "https://www.etnews.com"
+        },
+        {
+            "id": "mock-news-19",
+            "title": "시도교육청 공동 개발, 초등 저학년 맞춤형 생활지도 가이드북 전국 초등학교 배포 및 적용",
+            "importance": "MEDIUM",
+            "priority_reason": "",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "시도교육청은 초등학교 1, 2학년 학생들의 원만한 학교생활 적응을 지원하기 위한 생활지도 책자를 배포함.",
+                "학부모와 교사 간의 분쟁을 방지하기 위해 등하교, 식습관, 기초 규칙 준수 등 50여 개 다빈도 질문을 정리함.",
+                "교사가 직면하는 수업 방해 및 기초 규율 미준수 아동의 성향별 행동 발달 조치 팁을 구체적으로 포함함.",
+                "가이드북 연계를 위해 전국 초등 저학년 담임교사 대상 원격 화상 직무 보완 세미나도 학기 중 진행함.",
+                "배포된 생활지도 매뉴얼은 시범 적용을 거쳐 일선 초등학교의 학교 학급 규칙 제정에 정식 기준안으로 접목됨."
+            ],
+            "impact_rating": 3,
+            "related_fields": ["생활지도", "초등교육", "시도교육청정책"],
+            "source_press": "한국일보",
+            "source_date": "2026-07-05",
+            "source_link": "https://www.hankookilbo.com"
+        },
+        {
+            "id": "mock-news-20",
+            "title": "인사혁신처, 2026년 공무원 후생복지 개선 및 일선 교육 행정직 수당 처우 개선안 확정",
+            "importance": "MEDIUM",
+            "priority_reason": "",
+            "status": "CONFIRMED",
+            "summary_points": [
+                "인사혁신처는 교육 행정 현장에 근무하는 기술직 및 일반 행정직 공무원들의 처우 개선안을 정식 발표함.",
+                "학교 현장 근무에 따른 특수 업무 수당을 일부 증액하고, 자녀 돌봄 및 임신 공무원 대상 단축 근무를 활성화함.",
+                "하위직 공무원들의 급여 체계 만족도를 제고하기 위해 직급 보조비를 단계적으로 인상하는 안을 반영함.",
+                "교육공무직 조합 및 유관 단체 등은 처우 개선 대상 범위의 한계성을 비판하며 추가 보완책을 거듭 촉구함.",
+                "확정된 개선안은 2026년 하반기 예산 실무 집행 지침에 반영되어 소급분을 포함한 즉각 지급 절차에 들어감."
+            ],
+            "impact_rating": 3,
+            "related_fields": ["인사혁신처", "학교행정", "공무원 관련 제도 변화"],
+            "source_press": "세계일보",
+            "source_date": "2026-07-05",
+            "source_link": "https://www.segye.com"
+        },
+        {
+            "id": "mock-news-21",
+            "title": "국회 교육위원회, 초등 기초학력 진단 의무화 및 학습 격차 해소 공청회 최종 개최",
+            "importance": "MEDIUM",
+            "priority_reason": "",
+            "status": "UNDER_REVIEW",
+            "summary_points": [
+                "국회 교육위원회는 코로나19 이후 누적된 초등학생들의 학습 지연 격차 해소 방안을 토론하는 공청회를 주최함.",
+                "학력 저하 예방을 위한 초등학교 3학년 기초 학력 진단 평가의 정식 의무화 방안이 정밀 상정되어 논의됨.",
+                "교사 협회 및 일부 학부모 단체는 일제고사식 서열화 우려를 표명하며 진단지 사용과 개별 컨설팅 보강을 요청함.",
+                "국회 교육위는 진단 후 한글 미해득 등 부진 아동 대상 일대일 방과후 교사 지도 비용 국가 매칭 예산을 입안함.",
+                "토론회 결과 조율된 진단 의무화 법률안은 국회 본회의 최종 표결을 위한 예비 심사를 완료해 대기 중임."
+            ],
+            "impact_rating": 3,
+            "related_fields": ["국회교육위", "초등교육", "교육과정"],
+            "source_press": "문화일보",
+            "source_date": "2026-07-06",
+            "source_link": "https://www.munhwa.com"
         }
     ];
+}
 
+function generateLocalMockBriefing() {
+    const mockNews = getLocalMockNews();
     setTimeout(() => {
         const loader = document.getElementById('generation-loader');
         const btnGenerate = document.getElementById('btn-generate');
@@ -759,6 +1168,8 @@ function generateLocalMockBriefing() {
         }, 300);
     }, 200);
 }
+
+
 
 // Resolve news title and press name to the original grounding URL
 function findBestMatchingUrl(newsTitle, pressName, groundingChunks) {
@@ -1011,7 +1422,8 @@ function renderAllNews() {
     // Within each priority group, sort by source_date DESC, then impact_rating DESC
     const sortedNews = [...ALL_NEWS_DATA].sort((a, b) => {
         const getPriorityWeight = (reason) => {
-            if (reason === "강원교육 우선순위") return 3;
+            if (reason === "강원교육 본청 우선순위") return 4;
+            if (reason === "지역교육청 우선순위") return 3;
             if (reason === "중대 현안(2순위)") return 2;
             return 1;
         };
@@ -1382,6 +1794,123 @@ function printBriefingReport() {
         return;
     }
     window.print();
+}
+
+/* ==========================================
+   STREAMING_CHUNK: GitHub Pages Integration
+   ========================================== */
+function saveGithubSettings() {
+    const owner = document.getElementById('github-username-input').value.trim();
+    const repo = document.getElementById('github-repo-input').value.trim();
+    const branch = document.getElementById('github-branch-input').value.trim() || 'main';
+    const token = document.getElementById('github-token-input').value.trim();
+
+    localStorage.setItem('GITHUB_USERNAME', owner);
+    localStorage.setItem('GITHUB_REPO', repo);
+    localStorage.setItem('GITHUB_BRANCH', branch);
+    localStorage.setItem('GITHUB_TOKEN', token);
+    showToast("💾 깃허브 연동 설정이 로컬 컴퓨터에 안전하게 저장되었습니다.", "success");
+}
+
+function toggleGithubTokenVisibility() {
+    const input = document.getElementById('github-token-input');
+    const icon = document.getElementById('github-token-visibility-icon');
+    if (input && icon) {
+        if (input.type === "password") {
+            input.type = "text";
+            icon.className = "fa-solid fa-eye-slash text-[11px]";
+        } else {
+            input.type = "password";
+            icon.className = "fa-solid fa-eye text-[11px]";
+        }
+    }
+}
+
+async function publishToGithub() {
+    const owner = document.getElementById('github-username-input') ? document.getElementById('github-username-input').value.trim() : "";
+    const repo = document.getElementById('github-repo-input') ? document.getElementById('github-repo-input').value.trim() : "";
+    const branch = document.getElementById('github-branch-input') ? document.getElementById('github-branch-input').value.trim() || 'main' : 'main';
+    const token = document.getElementById('github-token-input') ? document.getElementById('github-token-input').value.trim() : "";
+
+    const btnPublish = document.getElementById('btn-publish-github');
+    const btnText = document.getElementById('btn-publish-text');
+
+    if (!owner || !repo || !token) {
+        showToast("⚠️ 깃허브 공유 연동 설정을 모두 입력하고 저장해 주세요.", "error");
+        return;
+    }
+
+    if (ALL_NEWS_DATA.length === 0) {
+        showToast("⚠️ 게시할 뉴스 리포트 데이터가 없습니다. 먼저 뉴스를 수집해 주세요.", "error");
+        return;
+    }
+
+    try {
+        if (btnPublish) {
+            btnPublish.disabled = true;
+            btnPublish.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+        if (btnText) btnText.innerText = "깃허브 리포트 게시 중...";
+
+        const path = "data.json";
+        const getUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+        
+        let sha = null;
+        try {
+            // Check if file exists to get the SHA (mandatory for GitHub PUT contents API updates)
+            const getRes = await fetch(getUrl, {
+                headers: {
+                    "Authorization": `token ${token}`,
+                    "Accept": "application/vnd.github.v3+json"
+                }
+            });
+            if (getRes.ok) {
+                const getData = await getRes.json();
+                sha = getData.sha;
+            }
+        } catch (e) {
+            console.log("data.json does not exist yet, creating new file.");
+        }
+
+        const putUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+        const utf8Content = unescape(encodeURIComponent(JSON.stringify(ALL_NEWS_DATA, null, 2)));
+        const base64Content = btoa(utf8Content);
+
+        const bodyPayload = {
+            message: "Update news briefing data.json via Morning Briefing builder",
+            content: base64Content,
+            branch: branch
+        };
+        if (sha) {
+            bodyPayload.sha = sha;
+        }
+
+        const putRes = await fetch(putUrl, {
+            method: "PUT",
+            headers: {
+                "Authorization": `token ${token}`,
+                "Content-Type": "application/json",
+                "Accept": "application/vnd.github.v3+json"
+            },
+            body: JSON.stringify(bodyPayload)
+        });
+
+        if (putRes.ok) {
+            showToast("✨ 깃허브 Pages 저장소에 오늘의 뉴스 리포트가 성공적으로 게시되었습니다!", "success");
+        } else {
+            const errBody = await putRes.json().catch(() => ({}));
+            throw new Error(errBody.message || `HTTP ${putRes.status}`);
+        }
+    } catch (err) {
+        console.error("GitHub Publish Error:", err);
+        showToast(`⚠️ 게시 실패 (${err.message}): 깃허브 설정 또는 토큰 권한을 확인하세요.`, "error");
+    } finally {
+        if (btnPublish) {
+            btnPublish.disabled = false;
+            btnPublish.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+        if (btnText) btnText.innerText = "깃허브 Pages에 리포트 게시";
+    }
 }
 </script>
 </body>
