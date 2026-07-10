@@ -373,7 +373,7 @@ function initApp() {
     document.getElementById('current-date-text').innerText = today.toLocaleDateString('ko-KR', options);
 
     // Try to load shared data from server first (live cache-busted fetch)
-    fetch(`data.json?t=${Date.now()}`)
+    fetch(`data.json?t=${Date.now()}`, { cache: "no-store" })
         .then(res => {
             if (res.ok) return res.json();
             throw new Error("No shared data");
