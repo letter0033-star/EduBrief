@@ -112,6 +112,11 @@
                     <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                     <span>나의 API키 발급받기(무료)</span>
                 </a>
+                <!-- Clear Saved Key Button -->
+                <button onclick="clearSavedApiKey()" class="w-full bg-red-50 hover:bg-red-100 text-red-700 font-semibold py-1.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs border border-red-200 shadow-sm">
+                    <i class="fa-solid fa-trash-can text-[11px]"></i>
+                    <span>기존 저장된 API 키 초기화(삭제)</span>
+                </button>
                 <div class="text-[10px] text-slate-400 flex items-center gap-1.5 pt-1">
                     <span class="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" id="api-key-status-dot"></span>
                     <span id="api-key-status-text">API 키 입력이 필요합니다 (수집 대기 중).</span>
@@ -450,7 +455,8 @@ function showToast(message, type = 'info') {
 }
 
 function saveSidebarApiKey() {
-    const key = document.getElementById('api-key-sidebar-input').value.trim();
+    const rawKey = document.getElementById('api-key-sidebar-input') ? document.getElementById('api-key-sidebar-input').value : "";
+    const key = rawKey.replace(/\s/g, '');
     if (!key) {
         showToast("⚠️ 저장할 API 키를 입력해 주세요.", "error");
         return;
@@ -458,6 +464,16 @@ function saveSidebarApiKey() {
     localStorage.setItem('GEMINI_API_KEY', key);
     updateSidebarKeyStatus(key);
     showToast("💾 API 키가 사용자 PC의 로컬 저장소(localStorage)에 안전하게 저장되었습니다.", "success");
+}
+
+function clearSavedApiKey() {
+    localStorage.removeItem('GEMINI_API_KEY');
+    const input = document.getElementById('api-key-sidebar-input');
+    if (input) {
+        input.value = "";
+    }
+    updateSidebarKeyStatus("");
+    showToast("🗑️ 로컬 저장소의 API 키가 완전히 삭제 및 초기화되었습니다. 새 키를 입력해 주세요.", "info");
 }
 
 function updateSidebarKeyStatus(key) {
@@ -524,8 +540,10 @@ async function fetchWithBackoff(url, options, retries = 2, delays = [1500, 3000]
    ========================================== */
 async function generateMorningBriefing() {
     try {
-        const inputKey = document.getElementById('api-key-sidebar-input') ? document.getElementById('api-key-sidebar-input').value.trim() : "";
-        const apiKey = inputKey || localStorage.getItem('GEMINI_API_KEY') || "";
+        const inputKeyRaw = document.getElementById('api-key-sidebar-input') ? document.getElementById('api-key-sidebar-input').value : "";
+        const inputKey = inputKeyRaw.replace(/\s/g, '');
+        const storedKeyRaw = localStorage.getItem('GEMINI_API_KEY') || "";
+        const apiKey = (inputKey || storedKeyRaw).replace(/\s/g, '');
         const loader = document.getElementById('generation-loader');
         const progressBar = document.getElementById('loader-progress-bar');
         const loaderText = document.getElementById('loader-step-text');
@@ -569,9 +587,9 @@ async function generateMorningBriefing() {
         } else {
             throw new Error("가져온 데이터의 포맷이 유효하지 않습니다.");
         }
-    } catch (err) {
         console.error("Gemini API Error:", err);
-        showToast(`⚠️ 실시간 수집 실패: 비상 대피용 로컬 모의 뉴스(21개)를 로드합니다. (${err.message || err})`, "warning");
+        const maskedKey = apiKey ? `${apiKey.slice(0, 6)}...${apiKey.slice(-5)}` : "없음";
+        alert(`🚨 Gemini API 실시간 수집 실패 상세 원인:\n\n${err.message || err}\n\n🔑 현재 적용 중인 API 키: ${maskedKey}\n\n(※ 만약 적용 중인 키가 새 키가 아니라면, 새 키를 입력 후 [로컬 컴퓨터에 저장]을 꼭 눌러주세요.)`);
         ALL_NEWS_DATA = getLocalMockNews();
         localStorage.setItem('LAST_BRIEFING_DATA', JSON.stringify(ALL_NEWS_DATA));
     } finally {
@@ -606,8 +624,9 @@ async function generateMorningBriefing() {
    ========================================== */
 async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     const attempts = [
-        { version: "v1beta", model: "gemini-2.5-flash" },
-        { version: "v1beta", model: "gemini-2.5-pro" }
+        { version: "v1beta", model: "gemini-1.5-flash" },
+        { version: "v1beta", model: "gemini-1.5-pro" },
+        { version: "v1beta", model: "gemini-2.0-flash" }
     ];
     let lastError = null;
 
