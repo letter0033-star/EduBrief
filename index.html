@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -624,9 +624,9 @@ async function generateMorningBriefing() {
    ========================================== */
 async function fetchRealGeminiData(apiKey, updateProgressCallback) {
     const attempts = [
-        { version: "v1beta", model: "gemini-1.5-flash" },
-        { version: "v1beta", model: "gemini-1.5-pro" },
-        { version: "v1beta", model: "gemini-2.0-flash" }
+        { version: "v1beta", model: "gemini-3.6-flash" },
+        { version: "v1beta", model: "gemini-3.5-flash-lite" },
+        { version: "v1beta", model: "gemini-3.1-pro" }
     ];
     let lastError = null;
 
