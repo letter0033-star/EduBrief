@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -152,7 +152,7 @@
                         <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
                             <i class="fa-solid fa-lock text-[10px]"></i>
                         </span>
-                        <input type="password" id="github-token-input" class="pl-8 pr-8 py-1.5 w-full bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono" placeholder="ghp_...">
+                        <input type="password" id="github-token-input" class="pl-8 pr-8 py-1.5 w-full bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono" placeholder="ghp_... 또는 github_pat_...">
                         <button onclick="toggleGithubTokenVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
                             <i id="github-token-visibility-icon" class="fa-solid fa-eye text-[11px]"></i>
                         </button>
@@ -366,9 +366,9 @@ function initApp() {
     }
     updateSidebarKeyStatus(storedKey);
 
-    // Setup and pre-populate GitHub Configuration from localStorage
-    const githubUser = localStorage.getItem('GITHUB_USERNAME') || "";
-    const githubRepo = localStorage.getItem('GITHUB_REPO') || "";
+    // Setup and pre-populate GitHub Configuration from localStorage (with default values)
+    const githubUser = localStorage.getItem('GITHUB_USERNAME') || "letter0033-star";
+    const githubRepo = localStorage.getItem('GITHUB_REPO') || "EduBrief";
     const githubBranch = localStorage.getItem('GITHUB_BRANCH') || "main";
     const githubToken = localStorage.getItem('GITHUB_TOKEN') || "";
     
@@ -623,11 +623,39 @@ async function generateMorningBriefing() {
    STREAMING_CHUNK: Gemini 2.5 Live Grounding Engine
    ========================================== */
 async function fetchRealGeminiData(apiKey, updateProgressCallback) {
-    const attempts = [
-        { version: "v1beta", model: "gemini-3.6-flash" },
-        { version: "v1beta", model: "gemini-3.5-flash-lite" },
-        { version: "v1beta", model: "gemini-3.1-pro" }
-    ];
+    let attempts = [];
+    try {
+        updateProgressCallback(10, "구글 API 지원 모델 자동 탐색 중...");
+        const modelListRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        if (modelListRes.ok) {
+            const modelListData = await modelListRes.json();
+            const availableModels = (modelListData.models || [])
+                .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+                .map(m => m.name.replace('models/', ''));
+
+            // Sort: flash models first, then pro models, excluding non-text special models
+            const flash = availableModels.filter(m => m.includes('flash') && !m.includes('embedding') && !m.includes('realtime'));
+            const pro = availableModels.filter(m => m.includes('pro') && !m.includes('embedding') && !m.includes('realtime'));
+            const candidateNames = [...flash, ...pro];
+            
+            for (const name of candidateNames) {
+                attempts.push({ version: "v1beta", model: name });
+            }
+        }
+    } catch (e) {
+        console.warn("Auto model discovery failed, using fallback list:", e);
+    }
+
+    if (attempts.length === 0) {
+        attempts = [
+            { version: "v1beta", model: "gemini-2.5-flash" },
+            { version: "v1beta", model: "gemini-2.0-flash" },
+            { version: "v1beta", model: "gemini-1.5-flash" },
+            { version: "v1beta", model: "gemini-1.5-flash-latest" },
+            { version: "v1beta", model: "gemini-1.5-pro" },
+            { version: "v1", model: "gemini-1.5-flash" }
+        ];
+    }
     let lastError = null;
 
     const now = new Date();
@@ -1827,7 +1855,8 @@ function saveGithubSettings() {
     const owner = document.getElementById('github-username-input').value.trim();
     const repo = document.getElementById('github-repo-input').value.trim();
     const branch = document.getElementById('github-branch-input').value.trim() || 'main';
-    const token = document.getElementById('github-token-input').value.trim();
+    const rawToken = document.getElementById('github-token-input').value;
+    const token = rawToken.replace(/\s/g, '');
 
     localStorage.setItem('GITHUB_USERNAME', owner);
     localStorage.setItem('GITHUB_REPO', repo);
@@ -1854,7 +1883,8 @@ async function publishToGithub() {
     const owner = document.getElementById('github-username-input') ? document.getElementById('github-username-input').value.trim() : "";
     const repo = document.getElementById('github-repo-input') ? document.getElementById('github-repo-input').value.trim() : "";
     const branch = document.getElementById('github-branch-input') ? document.getElementById('github-branch-input').value.trim() || 'main' : 'main';
-    const token = document.getElementById('github-token-input') ? document.getElementById('github-token-input').value.trim() : "";
+    const rawToken = document.getElementById('github-token-input') ? document.getElementById('github-token-input').value : "";
+    const token = rawToken.replace(/\s/g, '');
 
     const btnPublish = document.getElementById('btn-publish-github');
     const btnText = document.getElementById('btn-publish-text');
@@ -1876,6 +1906,7 @@ async function publishToGithub() {
         }
         if (btnText) btnText.innerText = "깃허브 리포트 게시 중...";
 
+        const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
         const path = "data.json";
         const getUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
         
@@ -1884,7 +1915,7 @@ async function publishToGithub() {
             // Check if file exists to get the SHA (mandatory for GitHub PUT contents API updates)
             const getRes = await fetch(getUrl, {
                 headers: {
-                    "Authorization": `token ${token}`,
+                    "Authorization": authHeader,
                     "Accept": "application/vnd.github.v3+json"
                 }
             });
@@ -1912,7 +1943,7 @@ async function publishToGithub() {
         const putRes = await fetch(putUrl, {
             method: "PUT",
             headers: {
-                "Authorization": `token ${token}`,
+                "Authorization": authHeader,
                 "Content-Type": "application/json",
                 "Accept": "application/vnd.github.v3+json"
             },
@@ -1941,7 +1972,8 @@ async function publishAppToGithub() {
     const owner = document.getElementById('github-username-input') ? document.getElementById('github-username-input').value.trim() : "";
     const repo = document.getElementById('github-repo-input') ? document.getElementById('github-repo-input').value.trim() : "";
     const branch = document.getElementById('github-branch-input') ? document.getElementById('github-branch-input').value.trim() || 'main' : 'main';
-    const token = document.getElementById('github-token-input') ? document.getElementById('github-token-input').value.trim() : "";
+    const rawToken = document.getElementById('github-token-input') ? document.getElementById('github-token-input').value : "";
+    const token = rawToken.replace(/\s/g, '');
 
     const btnPublish = document.getElementById('btn-publish-app');
     const btnText = document.getElementById('btn-publish-app-text');
@@ -1962,7 +1994,7 @@ async function publishAppToGithub() {
         }
         if (btnText) btnText.innerText = "소스코드 업로드 중...";
 
-        // Fetch current page's HTML content from local file path or web URL
+        const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
         const pageRes = await fetch(window.location.href);
         if (!pageRes.ok) {
             throw new Error("로컬 index.html 코드를 읽어오지 못했습니다.");
@@ -1976,7 +2008,7 @@ async function publishAppToGithub() {
         try {
             const getRes = await fetch(getUrl, {
                 headers: {
-                    "Authorization": `token ${token}`,
+                    "Authorization": authHeader,
                     "Accept": "application/vnd.github.v3+json"
                 }
             });
@@ -2004,7 +2036,7 @@ async function publishAppToGithub() {
         const putRes = await fetch(putUrl, {
             method: "PUT",
             headers: {
-                "Authorization": `token ${token}`,
+                "Authorization": authHeader,
                 "Content-Type": "application/json",
                 "Accept": "application/vnd.github.v3+json"
             },
